@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+  <title>OpsPad (with Spectrum Visualizer)</title>
+  <style>
+    :root { --bg:#0a0a0a; --panel:#131316; --muted:#a1a1aa; --text:#fafafa; --accent:#ffffff; --border:#27272a; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; }
+    .wrap { display:flex; flex-direction:column; min-height:100dvh; }
+    header { position:sticky; top:0; z-index:10; padding:16px 16px 8px; background:linear-gradient(180deg, rgba(10,10,10,0.9), rgba(10,10,10,0)); backdrop-filter: blur(6px); }
+    h1 { margin:0; font-size:20px; font-weight:800; letter-spacing:-0.01em; }
+    main { flex:1; padding:16px; padding-bottom:112px; }
+    .tabs { position:fixed; left:0; right:0; bottom:0; background:#0f0f13; border-top:1px solid var(--border); display:grid; grid-template-columns:repeat(5,1fr); }
+    .tab { padding:10px 4px; text-align:center; color:#a1a1aa; font-size:11px; }
+    .tab.active { color:#fff; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; }
+    .row { display:flex; align-items:center; gap:8px; }
+    .btn { background:var(--accent); color:#111; font-weight:700; padding:10px 14px; border-radius:12px; border:none; }
+    .btn.ghost { background:#1b1b21; color:#e5e5e5; border:1px solid var(--border); }
+    input, textarea { width:100%; background:#111116; border:1px solid var(--border); color:var(--text); border-radius:12px; padding:12px; font-size:14px; }
+    ul { list-style:none; padding:0; margin:0; }
+    .pill { width:18px; height:18px; border-radius:50%; border:1.5px solid #6b7280; display:grid; place-items:center; }
+    .strike { text-decoration: line-through; opacity:0.6; }
+    .grid { display:grid; place-items:center; gap:12px; }
+    .center { text-align:center; color:var(--muted); font-size:13px; }
+    .sm { font-size:12px; color:var(--muted); }
+    .num { font-variant-numeric: tabular-nums; }
+    .hidden { display:none; }
+    .progress { transform: rotate(-90deg); }
+    .spacer { height:8px; }
+    .mt { margin-top:8px; }
+    /* Visualizer */
+    #viz-canvas { width:100%; height:320px; border-radius:16px; background: radial-gradient(1200px 600px at 20% 0%, #121219 0%, #0a0a0a 60%); border:1px solid var(--border); }
+    #viz-legend { display:flex; gap:8px; align-items:center; justify-content:center; color:#cfcfe6; font-size:12px; opacity:.8; }
+    .dot { width:8px; height:8px; border-radius:999px; display:inline-block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>OpsPad</h1>
+      <div class="sm">offline-first • local only</div>
+    </header>
+
+    <main>
+      <!-- Tasks -->
+      <section id="view-tasks">
+        <form id="task-form" class="row">
+          <input id="task-input" placeholder="Add a task…"/>
+          <button class="btn" type="submit">Add</button>
+        </form>
+        <div class="row sm" style="margin-top:8px; justify-content:space-between;">
+          <span id="remaining">0 remaining</span>
+          <button id="clear-done" class="btn ghost">Clear done</button>
+        </div>
+        <ul id="task-list" class="mt"></ul>
+      </section>
+
+      <!-- Notes -->
+      <section id="view-notes" class="hidden">
+        <form id="note-form">
+          <input id="note-title" placeholder="Title (optional)"/>
+          <div class="spacer"></div>
+          <textarea id="note-body" rows="4" placeholder="Write a note…"></textarea>
+          <div class="mt" style="text-align:right;"><button class="btn" type="submit">Save</button></div>
+        </form>
+        <ul id="note-list" class="mt"></ul>
+      </section>
+
+      <!-- Timer -->
+      <section id="view-timer" class="hidden">
+        <div class="grid">
+          <svg width="220" height="220" viewBox="0 0 120 120" class="progress">
+            <circle cx="60" cy="60" r="54" stroke="#27272a" stroke-width="12" fill="none"></circle>
+            <circle id="timer-progress" cx="60" cy="60" r="54" stroke="#ffffff" stroke-width="12" stroke-linecap="round" fill="none" stroke-dasharray="339.292" stroke-dashoffset="0"></circle>
+          </svg>
+          <div id="timer-readout" class="num" style="font-size:40px; font-weight:800;">25:00</div>
+          <div class="row">
+            <button id="timer-start" class="btn">Start</button>
+            <button id="timer-reset" class="btn ghost">Reset</button>
+          </div>
+          <div class="card" style="width:100%;">
+            <div class="sm">Timer length (minutes)</div>
+            <input type="range" id="timer-range" min="5" max="90" value="25" style="width:100%;"/>
+            <div id="timer-mins" class="sm">25 minutes</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BPM -->
+      <section id="view-bpm" class="hidden">
+        <div class="grid">
+          <div class="sm" style="text-transform:uppercase; letter-spacing:0.2em;">Average BPM</div>
+          <div id="bpm-value" class="num" style="font-size:46px; font-weight:900;">—</div>
+          <div id="bpm-ms" class="sm"></div>
+          <button id="bpm-tap" class="btn" style="width:160px; height:160px; border-radius:999px; font-size:24px;">TAP</button>
+          <button id="bpm-reset" class="btn ghost">Reset</button>
+          <div class="center sm">Tip: tap in time 5–8 times</div>
+        </div>
+      </section>
+
+      <!-- Spectrum Visualizer -->
+      <section id="view-viz" class="hidden">
+        <div class="card" style="display:flex; flex-direction:column; gap:12px;">
+          <canvas id="viz-canvas"></canvas>
+          <div id="viz-legend">
+            <span class="dot" style="background:#59f;"></span><span>low</span>
+            <span class="dot" style="background:#0f8;"></span><span>mid</span>
+            <span class="dot" style="background:#f0f;"></span><span>high</span>
+            <span class="dot" style="background:#ffa500;"></span><span>rising</span>
+            <span class="dot" style="background:#00e0ff;"></span><span>falling</span>
+          </div>
+          <div class="row" style="justify-content:space-between;">
+            <div class="row">
+              <button id="viz-start" class="btn">Start Mic</button>
+              <button id="viz-stop" class="btn ghost">Stop</button>
+            </div>
+            <div style="min-width:180px;">
+              <div class="sm">Sensitivity</div>
+              <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:180px;"/>
+            </div>
+          </div>
+          <div id="viz-status" class="sm"></div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="tasks">Tasks</button>
+      <button class="tab" data-tab="notes">Notes</button>
+      <button class="tab" data-tab="timer">Timer</button>
+      <button class="tab" data-tab="bpm">BPM</button>
+      <button class="tab" data-tab="viz">Viz</button>
+    </nav>
+  </div>
+
+  <script>
+    // ---------- Helpers
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => Array.from(document.querySelectorAll(s));
+    const storage = {
+      get(k, f) { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } },
+      set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+    };
+
+    // ---------- Tabs
+    const sections = {
+      tasks: $("#view-tasks"),
+      notes: $("#view-notes"),
+      timer: $("#view-timer"),
+      bpm: $("#view-bpm"),
+      viz: $("#view-viz"),
+    };
+    $$(".tabs .tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        $$(".tabs .tab").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        Object.keys(sections).forEach(k => {
+          sections[k].classList.toggle("hidden", k !== tab);
+        });
+      });
+    });
+
+    // ---------- Tasks
+    let tasks = storage.get("opspad:tasks", []);
+    const taskList = $("#task-list");
+    const taskInput = $("#task-input");
+    const remaining = $("#remaining");
+    const uid = () => Math.random().toString(36).slice(2,9);
+
+    function renderTasks(){
+      taskList.innerHTML = "";
+      if (tasks.length === 0) {
+        const li = document.createElement("li");
+        li.className = "center";
+        li.textContent = "No tasks yet. Add your first one above.";
+        taskList.appendChild(li);
+      } else {
+        tasks.forEach(t => {
+          const li = document.createElement("li");
+          li.className = "card";
+          const row = document.createElement("div");
+          row.className = "row";
+          const pill = document.createElement("button");
+          pill.className = "pill";
+          pill.setAttribute("aria-label","toggle");
+          if (t.done) { pill.style.background = "#fff"; pill.style.borderColor = "#fff"; }
+          pill.addEventListener("click", () => {
+            t.done = !t.done; storage.set("opspad:tasks", tasks); renderTasks();
+          });
+          const txt = document.createElement("div");
+          txt.style.flex = "1";
+          txt.style.fontSize = "14px";
+          txt.textContent = t.text;
+          if (t.done) txt.classList.add("strike");
+          const del = document.createElement("button");
+          del.className = "btn ghost";
+          del.textContent = "Delete";
+          del.addEventListener("click", () => {
+            tasks = tasks.filter(x => x.id !== t.id);
+            storage.set("opspad:tasks", tasks);
+            renderTasks();
+          });
+          row.appendChild(pill); row.appendChild(txt); row.appendChild(del);
+          li.appendChild(row);
+          taskList.appendChild(li);
+        });
+      }
+      const left = tasks.filter(x => !x.done).length;
+      remaining.textContent = `${left} remaining`;
+    }
+    $("#task-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = taskInput.value.trim();
+      if (!v) return;
+      tasks.unshift({id:uid(), text:v, done:false, ts:Date.now()});
+      storage.set("opspad:tasks", tasks);
+      taskInput.value = "";
+      renderTasks();
+    });
+    $("#clear-done").addEventListener("click", () => {
+      tasks = tasks.filter(x => !x.done);
+      storage.set("opspad:tasks", tasks);
+      renderTasks();
+    });
+    renderTasks();
+
+    // ---------- Notes
+    let notes = storage.get("opspad:notes", []);
+    const noteList = $("#note-list");
+    const noteForm = $("#note-form");
+    const noteTitle = $("#note-title");
+    const noteBody = $("#note-body");
+
+    function renderNotes(){
+      noteList.innerHTML = "";
+      if (notes.length === 0){
+        const li = document.createElement("li");
+        li.className = "center";
+        li.textContent = "No notes yet. Write your first one above.";
+        noteList.appendChild(li);
+      } else {
+        notes.forEach(n => {
+          const li = document.createElement("li");
+          li.className = "card";
+          const row = document.createElement("div");
+          row.className = "row";
+          row.style.alignItems = "start";
+          const col = document.createElement("div");
+          if (n.title){
+            const h = document.createElement("div");
+            h.style.fontWeight = "700"; h.style.fontSize = "14px"; h.style.marginBottom = "6px";
+            h.textContent = n.title;
+            col.appendChild(h);
+          }
+          const p = document.createElement("div");
+          p.style.fontSize = "14px"; p.style.whiteSpace = "pre-wrap";
+          p.textContent = n.body;
+          col.appendChild(p);
+          const del = document.createElement("button");
+          del.className = "btn ghost";
+          del.textContent = "Delete";
+          del.addEventListener("click", () => {
+            notes = notes.filter(x => x.id !== n.id);
+            storage.set("opspad:notes", notes);
+            renderNotes();
+          });
+          row.appendChild(col); row.appendChild(del);
+          li.appendChild(row);
+          noteList.appendChild(li);
+        });
+      }
+    }
+    noteForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const t = noteTitle.value.trim(), b = noteBody.value.trim();
+      if (!t && !b) return;
+      notes.unshift({id:uid(), title:t, body:b, ts:Date.now()});
+      storage.set("opspad:notes", notes);
+      noteTitle.value = ""; noteBody.value = "";
+      renderNotes();
+    });
+    renderNotes();
+
+    // ---------- Timer
+    let dur = storage.get("opspad:timer:dur", 25*60);
+    let left = storage.get("opspad:timer:left", dur);
+    let running = storage.get("opspad:timer:run", false);
+    let raf = null, last = null;
+    const range = $("#timer-range");
+    const readout = $("#timer-readout");
+    const minsLbl = $("#timer-mins");
+    const circle = $("#timer-progress");
+    const btnStart = $("#timer-start");
+    const btnReset = $("#timer-reset");
+    const radius = 54;
+    const C = 2 * Math.PI * radius;
+    circle.setAttribute("stroke-dasharray", String(C));
+    function format(s){ const m = Math.floor(s/60); const sec = Math.floor(s%60); return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0"); }
+    function draw(){ readout.textContent = format(left); const pct = Math.max(0, Math.min(1, left/dur)); circle.setAttribute("stroke-dashoffset", String(C - C*pct)); }
+    function tick(ts){ if (last==null) last=ts; const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt); storage.set("opspad:timer:left", left); draw(); if(left<=0){ running=false; storage.set("opspad:timer:run", running); last=null; btnStart.textContent="Start"; return;} raf=requestAnimationFrame(tick); }
+    btnStart.addEventListener("click", () => {
+      if (!running){ if(left<=0) left=dur; running=true; storage.set("opspad:timer:run", running); raf=requestAnimationFrame(tick); btnStart.textContent="Pause"; }
+      else { running=false; storage.set("opspad:timer:run", running); cancelAnimationFrame(raf); last=null; btnStart.textContent="Start"; }
+    });
+    btnReset.addEventListener("click", () => { running=false; storage.set("opspad:timer:run", running); cancelAnimationFrame(raf); last=null; left=dur; storage.set("opspad:timer:left", left); draw(); btnStart.textContent="Start"; });
+    range.value=Math.round(dur/60); minsLbl.textContent=`${range.value} minutes`;
+    range.addEventListener("input", () => { dur=Number(range.value)*60; storage.set("opspad:timer:dur", dur); left=dur; storage.set("opspad:timer:left", left); minsLbl.textContent=`${range.value} minutes`; draw(); });
+    draw(); if (running){ btnStart.textContent="Pause"; raf=requestAnimationFrame(tick); }
+
+    // ---------- BPM Tapper
+    let taps = [];
+    const tapBtn = $("#bpm-tap");
+    const resetBtn = $("#bpm-reset");
+    const bpmValue = $("#bpm-value");
+    const bpmMs = $("#bpm-ms");
+    function updateBPM(){
+      if (taps.length < 2){ bpmValue.textContent = "—"; bpmMs.textContent = ""; return; }
+      const diffs = taps.slice(1).map((x,i)=>x-taps[i]);
+      const mean = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+      const bpm = 60000/mean;
+      bpmValue.textContent = String(Math.round(bpm*10)/10);
+      bpmMs.textContent = `~${Math.round((60000/bpm)*100)/100} ms per beat`;
+    }
+    tapBtn.addEventListener("click", () => {
+      taps = [...taps, performance.now()].slice(-8);
+      updateBPM();
+      if (navigator.vibrate) navigator.vibrate(10);
+      tapBtn.style.transform = "scale(0.96)"; setTimeout(()=> tapBtn.style.transform = "", 80);
+    });
+    resetBtn.addEventListener("click", () => { taps = []; updateBPM(); });
+
+    // ---------- Spectrum Visualizer (funky colours w/ shift highlighting)
+    (function setupSpectrum(){
+      const startBtn = $("#viz-start");
+      const stopBtn  = $("#viz-stop");
+      const sensEl   = $("#viz-sens");
+      const statusEl = $("#viz-status");
+      const canvas   = $("#viz-canvas");
+      const ctx      = canvas.getContext("2d", { alpha: false });
+
+      let audioCtx = null, analyser = null, source = null, stream = null;
+      let data = null, prev = null, rafId = null;
+      let sensitivity = parseFloat(sensEl.value);
+      let runningViz = false;
+
+      function dprSize(){
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        const rect = canvas.getBoundingClientRect();
+        canvas.width  = Math.floor(rect.width  * dpr);
+        canvas.height = Math.floor(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
+      }
+      dprSize(); new ResizeObserver(dprSize).observe(canvas);
+
+      const secureOK = window.isSecureContext || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+
+      function hueForBin(i, bins){
+        // base hue by frequency (low=blue, mid=green, high=magenta)
+        return (220 + (i/bins) * 160) % 360;
+      }
+
+      function draw(){
+        if (!analyser) return;
+        analyser.getByteFrequencyData(data);
+
+        // subtle trail to make motion silky
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "rgba(10,10,12,0.10)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const bins = data.length;
+
+        const barGap = 1; // px
+        const barW = Math.max(1, Math.floor(w / bins) - barGap);
+
+        // shadow "glow"
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "rgba(255,255,255,0.25)";
+
+        for (let i=0; i<bins; i++){
+          const v = data[i] / 255;                     // 0..1 amplitude
+          const y = Math.max(1, Math.pow(v * sensitivity, 1.1) * h); // curved response
+          const px = Math.floor(i * (barW + barGap));
+          const py = h - y;
+
+          // delta to highlight shift (rising = warm; falling = cyan)
+          const dv = prev ? (data[i] - prev[i]) / 255 : 0; // -1..+1
+          const baseHue = hueForBin(i, bins);
+          const hueShift = Math.max(-30, Math.min(30, dv * 100)); // emphasise changes
+          const hue = (baseHue + hueShift + 360) % 360;
+          const sat = 70 + Math.min(25, v*35);
+          const light = 40 + Math.min(30, v*35);
+
+          ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`;
+          ctx.fillRect(px, py, barW, y);
+
+          // edge shimmer for strong rises
+          if (dv > 0.06){
+            ctx.fillStyle = `hsla(${(hue+20)%360} 95% 65% / 0.9)`;
+            ctx.fillRect(px, py-2, barW, 2);
+          }
+        }
+        prev = (prev && prev.length === data.length) ? prev : new Uint8Array(bins);
+        prev.set(data);
+
+        rafId = requestAnimationFrame(draw);
+      }
+
+      async function start(){
+        if (runningViz) return;
+        if (!secureOK){
+          statusEl.textContent = "Microphone requires HTTPS or localhost (cannot run from file://).";
+          return;
+        }
+        try{
+          statusEl.textContent = "Requesting microphone…";
+          stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 1024; // 512/1024/2048; trade-off detail vs CPU
+          analyser.smoothingTimeConstant = 0.85;
+          source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          data = new Uint8Array(analyser.frequencyBinCount);
+          prev = new Uint8Array(analyser.frequencyBinCount);
+
+          runningViz = true;
+          statusEl.textContent = "Live (tap Stop to end).";
+          cancelAnimationFrame(rafId);
+          draw();
+        } catch(err){
+          runningViz = false;
+          statusEl.textContent = "Mic error: " + (err.message || err.name || err);
+        }
+      }
+
+      function stop(){
+        runningViz = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        if (source) { try{ source.disconnect(); }catch{} source=null; }
+        if (analyser) analyser=null;
+        if (audioCtx) { try{ audioCtx.close(); }catch{} audioCtx=null; }
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+          stream = null;
+        }
+        statusEl.textContent = "Stopped.";
+      }
+
+      startBtn.addEventListener("click", start);
+      stopBtn.addEventListener("click", stop);
+      sensEl.addEventListener("input", () => { sensitivity = parseFloat(sensEl.value); });
+
+      // Power save: pause on tab hide
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) { if (runningViz) stop(); }
+      });
+      // Cleanup on unload
+      window.addEventListener("pagehide", stop);
+    })();
+  </script>
+</body>
+</html>
