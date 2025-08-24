@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>OpsPad — Viz + Gyro</title>
+  <title>OpsPad — Viz + Gyro + Compass + Accel</title>
   <style>
     :root { --bg:#0a0a0a; --panel:#131316; --muted:#a1a1aa; --text:#fafafa; --accent:#ffffff; --border:#27272a; }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -43,6 +43,7 @@
     .colors { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .colors input[type=color]{ width:40px; height:36px; padding:0; border-radius:10px; border:1px solid var(--border); background:#111; }
     #gyro-canvas{ width:100%; height:180px; border-radius:16px; border:1px solid var(--border); background:#0b0f18; }
+    #badge-inverted { position:absolute; right:12px; top:12px; font-size:11px; background:#b00020; color:#fff; padding:4px 8px; border-radius:999px; display:none; }
   </style>
 </head>
 <body>
@@ -111,7 +112,8 @@
 
       <!-- Spectrum Visualizer -->
       <section id="view-viz" class="hidden">
-        <div class="card" style="display:flex; flex-direction:column; gap:12px;">
+        <div class="card" style="display:flex; flex-direction:column; gap:12px; position:relative;">
+          <span id="badge-inverted">INVERTED</span>
           <canvas id="viz-canvas"></canvas>
 
           <div class="seg">
@@ -130,7 +132,7 @@
             <label class="sm" for="viz-circle">Circle size</label>
             <input type="range" id="viz-circle" min="0.18" max="0.45" step="0.01" value="0.28" style="width:150px;"/>
 
-            <button id="viz-gyro" class="btn ghost">Enable Gyro</button>
+            <button id="viz-gyro" class="btn ghost">Enable Sensors</button>
           </div>
 
           <div class="seg">
@@ -153,9 +155,9 @@
           <div id="viz-status" class="center" style="font-size:12px;"></div>
 
           <div class="card" style="display:flex; flex-direction:column; gap:8px;">
-            <div class="row" style="justify-content:space-between;">
-              <div class="sm">Gyro attitude (like a plane)</div>
-              <div class="sm num" id="gyro-readout">pitch 0°, roll 0°</div>
+            <div class="row" style="justify-content:space-between; flex-wrap:wrap;">
+              <div class="sm">Gyro attitude (artificial horizon)</div>
+              <div class="sm num" id="gyro-readout">pitch 0°, roll 0° • heading — • face —</div>
             </div>
             <canvas id="gyro-canvas"></canvas>
           </div>
@@ -190,7 +192,7 @@
 
     // Notes
     let notes=storage.get("opspad:notes",[]); const noteList=$("#note-list"), noteForm=$("#note-form"), noteTitle=$("#note-title"), noteBody=$("#note-body");
-    function renderNotes(){ noteList.innerHTML=""; if(!notes.length){const li=document.createElement("li"); li.className="center"; li.textContent="No notes yet. Write your first one above."; noteList.appendChild(li);} else { notes.forEach(n=>{ const li=document.createElement("li"); li.className="card"; const row=document.createElement("div"); row.className="row"; row.style.alignItems="start"; const col=document.createElement("div"); if(n.title){const h=document.createElement("div"); h.style.fontWeight="700"; h.style.fontSize="14px"; h.style.marginBottom="6px"; h.textContent=n.title; col.appendChild(h);} const p=document.createElement("div"); p.style.fontSize="14px"; p.style.whiteSpace="pre-wrap"; p.textContent=n.body; col.appendChild(p); const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete"; del.addEventListener("click",()=>{notes=notes.filter(x=>x.id!==n.id); storage.set("opspad:notes",notes); renderNotes();}); row.appendChild(col); row.appendChild(del); li.appendChild(row); noteList.appendChild(li);}); } }
+    function renderNotes(){ noteList.innerHTML=""; if(!notes.length){const li=document.createElement("li"); li.className="center"; li.textContent="No notes yet. Write your first one above."; noteList.appendChild(li);} else { notes.forEach(n=>{ const li=document.createElement("li"); li.className="card"; const row=document.createElement("div"); row.className="row"; row.style.alignItems="start"; const col=document.createElement("div"); if(n.title){const h=document.createElement("div"); h.style.fontWeight="700"; h.style.fontSize="14px"; h.textContent=n.title; col.appendChild(h);} const p=document.createElement("div"); p.style.fontSize="14px"; p.style.whiteSpace="pre-wrap"; p.textContent=n.body; col.appendChild(p); const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete"; del.addEventListener("click",()=>{notes=notes.filter(x=>x.id!==n.id); storage.set("opspad:notes",notes); renderNotes();}); row.appendChild(col); row.appendChild(del); li.appendChild(row); noteList.appendChild(li);}); } }
     noteForm.addEventListener("submit",e=>{e.preventDefault(); const t=noteTitle.value.trim(), b=noteBody.value.trim(); if(!t&&!b) return; notes.unshift({id:uid(),title:t,body:b,ts:Date.now()}); storage.set("opspad:notes",notes); noteTitle.value=""; noteBody.value=""; renderNotes();}); renderNotes();
 
     // Timer
@@ -219,33 +221,29 @@
     function hexToRgb(hex){ hex=hex.replace("#",""); if(hex.length===3){hex=hex.split("").map(c=>c+c).join("");} const n=parseInt(hex,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
     function lerp(a,b,t){ return a+(b-a)*t; }
     function lerpColor(c1,c2,t){ return { r:Math.round(lerp(c1.r,c2.r,t)), g:Math.round(lerp(c1.g,c2.g,t)), b:Math.round(lerp(c1.b,c2.b,t)) }; }
-    function colorFromStops(stops,t){ // t in [0,1]
-      const n=stops.length-1; const x=Math.max(0,Math.min(n-1,Math.floor(t*n))); const local=(t*n)-x;
-      const c1=hexToRgb(stops[x]), c2=hexToRgb(stops[x+1]); const c=lerpColor(c1,c2,local); return c;
-    }
-    function mix(c, withC, amt){ return { r:Math.round(lerp(c.r,withC.r,amt)), g:Math.round(lerp(c.g,withC.g,amt)), b:Math.round(lerp(c.b,withC.b,amt)) }; }
+    function colorFromStops(stops,t){ const n=stops.length-1; const x=Math.max(0,Math.min(n-1,Math.floor(t*n))); const local=(t*n)-x; const c1=hexToRgb(stops[x]), c2=hexToRgb(stops[x+1]); const c=lerpColor(c1,c2,local); return c; }
+    function mix(c,withC,amt){ return { r:Math.round(lerp(c.r,withC.r,amt)), g:Math.round(lerp(c.g,withC.g,amt)), b:Math.round(lerp(c.b,withC.b,amt)) }; }
     function rgbStr(c,a=1){ return `rgba(${c.r},${c.g},${c.b},${a})`; }
 
-    // ---------- Spectrum + Gyro
+    // ---------- Spectrum + Sensors
     (function(){
       const startBtn=$("#viz-start"), stopBtn=$("#viz-stop"), sensEl=$("#viz-sens"), modeEl=$("#viz-mode");
       const circleEl=$("#viz-circle"), paletteEl=$("#viz-palette"), customWrap=$("#custom-colors");
       const cLow=$("#c-low"), cMid=$("#c-mid"), cHigh=$("#c-high");
       const statusEl=$("#viz-status"), canvas=$("#viz-canvas"), ctx=canvas.getContext("2d",{alpha:false});
+      const badgeInv=$("#badge-inverted");
 
       let audioCtx=null, analyser=null, source=null, stream=null, data=null, prev=null, rafId=null;
       let sensitivity=parseFloat(sensEl.value), circleSize=parseFloat(circleEl.value);
-      let runningViz=false;
       let palette = storage.get("opspad:viz:palette","neon");
       paletteEl.value = palette;
       let customStops = storage.get("opspad:viz:custom", [cLow.value, cMid.value, cHigh.value]);
 
-      // Gyro state & horizon
+      // Sensors (gyro/orientation + accelerometer + heading)
       const gyroBtn=$("#viz-gyro"), gyroRead=$("#gyro-readout"), gyroCanvas=$("#gyro-canvas"), gtx=gyroCanvas.getContext("2d");
-      let gyroEnabled=false, gyro={alpha:0,beta:0,gamma:0}, rot=0, rafGyro=null;
-
-      // UI restore
-      if(palette==="custom"){ customWrap.classList.remove("hidden"); [cLow.value,cMid.value,cHigh.value]=customStops; }
+      let sensorsOn=false, rot=0, rafGyro=null;
+      let orient={alpha:null,beta:0,gamma:0,absolute:false,heading:null};
+      let accel={x:0,y:0,z:0,face:"—"}; // faceUp | faceDown | vertical
 
       // Canvas DPI
       function sizeCanvas(el, ctx){
@@ -257,47 +255,106 @@
 
       const secureOK = window.isSecureContext || location.hostname==="localhost" || location.hostname==="127.0.0.1";
 
-      // Gyro enable/disable
-      function onOrient(e){ gyro.alpha=e.alpha||0; gyro.beta=e.beta||0; gyro.gamma=e.gamma||0; }
-      async function enableGyro(){
-        try{
-          if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){ const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ statusEl.textContent="Gyro permission denied."; return; } }
-          if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch{} }
-          window.addEventListener("deviceorientation",onOrient,true);
-          gyroEnabled=true; gyroBtn.textContent="Gyro: On"; statusEl.textContent="Gyro enabled.";
-          drawHorizon(); // kick loop
-        }catch(err){ statusEl.textContent="Gyro error: "+(err.message||err); }
+      function degreesToCardinal(deg){
+        if(deg==null) return "—";
+        const dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW","N"];
+        return dirs[Math.round(deg/22.5)];
       }
-      function disableGyro(){ window.removeEventListener("deviceorientation",onOrient,true); gyroEnabled=false; gyroBtn.textContent="Enable Gyro"; statusEl.textContent="Gyro off."; cancelAnimationFrame(rafGyro); drawHorizon(true); }
-      gyroBtn.addEventListener("click",()=> gyroEnabled?disableGyro():enableGyro());
 
-      // Horizon display (artificial horizon)
+      function updateFace(){
+        // Heuristic: z ~ -9.8 face-up, z ~ +9.8 face-down (iOS convention). Android may be inverted — user will see which matches; we label accordingly.
+        const z=accel.z||0;
+        const ax=accel.x||0, ay=accel.y||0;
+        const absZ=Math.abs(z), absX=Math.abs(ax), absY=Math.abs(ay);
+        if(absZ > 6 && absZ > absX && absZ > absY){
+          accel.face = (z < 0) ? "face up" : "face down";
+        } else {
+          accel.face = "vertical";
+        }
+        badgeInv.style.display = (accel.face === "face down") ? "inline-block" : "none";
+      }
+
+      function onOrientation(e){
+        orient.alpha = (typeof e.webkitCompassHeading === "number") ? (360 - e.webkitCompassHeading) % 360 : (e.alpha ?? null);
+        orient.absolute = !!e.absolute;
+        orient.beta  = e.beta  || 0; // pitch
+        orient.gamma = e.gamma || 0; // roll
+        // If alpha present (either absolute or derived), treat as heading in degrees [0..360)
+        if (orient.alpha != null){
+          let h = orient.alpha;
+          if (h < 0) h += 360;
+          if (h >= 360) h -= 360;
+          orient.heading = h;
+        }
+      }
+
+      function onMotion(e){
+        const a = e.accelerationIncludingGravity || e.acceleration || null;
+        if(!a) return;
+        accel.x = a.x || 0; accel.y = a.y || 0; accel.z = a.z || 0;
+        updateFace();
+      }
+
+      async function enableSensors(){
+        try{
+          // iOS permission gates
+          if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+            const r1=await DeviceMotionEvent.requestPermission(); if(r1!=="granted"){ statusEl.textContent="Motion permission denied."; return; }
+          }
+          if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+            try{ await DeviceOrientationEvent.requestPermission(); }catch{}
+          }
+          window.addEventListener("deviceorientation", onOrientation, true);
+          window.addEventListener("devicemotion", onMotion, true);
+
+          sensorsOn=true; gyroBtn.textContent="Sensors: On"; statusEl.textContent="Sensors enabled.";
+          drawHorizon(); // start loop
+        }catch(err){
+          statusEl.textContent="Sensor error: "+(err.message||err);
+        }
+      }
+
+      function disableSensors(){
+        window.removeEventListener("deviceorientation", onOrientation, true);
+        window.removeEventListener("devicemotion", onMotion, true);
+        sensorsOn=false; gyroBtn.textContent="Enable Sensors"; statusEl.textContent="Sensors off.";
+        cancelAnimationFrame(rafGyro); drawHorizon(true);
+      }
+
+      gyroBtn.addEventListener("click", ()=> sensorsOn ? disableSensors() : enableSensors());
+
       function drawHorizon(stop=false){
         const w=gyroCanvas.clientWidth, h=gyroCanvas.clientHeight; gtx.clearRect(0,0,w,h);
-        // background bezel
-        gtx.fillStyle="#0b0f18"; gtx.fillRect(0,0,w,h);
         const cx=w/2, cy=h/2;
-        // compute pitch/roll
-        const pitch = Math.max(-45, Math.min(45, gyro.beta||0)); // deg
-        const roll  = (gyro.gamma||0); // deg
-        gyroRead.textContent=`pitch ${Math.round(pitch)}°, roll ${Math.round(roll)}°`;
+        // attitude
+        const pitch = Math.max(-60, Math.min(60, orient.beta||0));  // deg
+        const roll  = orient.gamma||0;                              // deg
+        const heading = orient.heading;                             // deg
+        const face = accel.face || "—";
+        gyroRead.textContent = `pitch ${Math.round(pitch)}°, roll ${Math.round(roll)}° • heading ${heading!=null?Math.round(heading):"—"}° ${degreesToCardinal(heading)} • ${face}`;
 
         gtx.save();
         gtx.translate(cx,cy);
-        gtx.rotate(roll*Math.PI/180);
+        // If face down, invert the whole instrument 180° (like a real horizon)
+        const invert = (face === "face down");
+        const rollRad = (roll * Math.PI/180) + (invert ? Math.PI : 0);
+        const scale = 3; // px per degree of pitch
+        const offset = (invert ? -pitch : pitch) * scale;
+
+        gtx.rotate(rollRad);
 
         // sky/ground
-        const scale=3; // px per degree of pitch
-        const offset = pitch*scale;
-        gtx.fillStyle="#0d1f4a"; gtx.fillRect(-w, -h*2+offset, w*2, h*2); // sky
-        gtx.fillStyle="#3a2412"; gtx.fillRect(-w, 0+offset, w*2, h*2);     // ground
+        if(!invert){
+          gtx.fillStyle="#0d1f4a"; gtx.fillRect(-w, -h*2+offset, w*2, h*2); // sky
+          gtx.fillStyle="#3a2412"; gtx.fillRect(-w, 0+offset, w*2, h*2);     // ground
+        } else {
+          gtx.fillStyle="#3a2412"; gtx.fillRect(-w, -h*2+offset, w*2, h*2); // swapped
+          gtx.fillStyle="#0d1f4a"; gtx.fillRect(-w, 0+offset, w*2, h*2);
+        }
 
         // horizon line
         gtx.strokeStyle="#ffffff"; gtx.lineWidth=2;
         gtx.beginPath(); gtx.moveTo(-w, offset); gtx.lineTo(w, offset); gtx.stroke();
-
-        // center marker
-        gtx.fillStyle="#fff"; gtx.beginPath(); gtx.arc(0,offset,3,0,Math.PI*2); gtx.fill();
 
         // degree ticks
         gtx.strokeStyle="rgba(255,255,255,0.6)"; gtx.lineWidth=1;
@@ -305,21 +362,38 @@
           const y=offset + d*scale;
           gtx.beginPath(); gtx.moveTo(-16,y); gtx.lineTo(16,y); gtx.stroke();
         }
+
         gtx.restore();
 
-        if(!stop && gyroEnabled) rafGyro=requestAnimationFrame(()=>drawHorizon(false));
+        // compass tape at top
+        if(heading!=null){
+          gtx.save();
+          gtx.translate(cx, 14);
+          gtx.fillStyle="rgba(0,0,0,0.35)";
+          gtx.fillRect(-80, -10, 160, 20);
+          gtx.strokeStyle="rgba(255,255,255,0.35)";
+          gtx.strokeRect(-80, -10, 160, 20);
+
+          gtx.fillStyle="#fff";
+          gtx.font="12px system-ui, sans-serif";
+          gtx.textAlign="center";
+          gtx.fillText(`${Math.round(heading)}° ${degreesToCardinal(heading)}`, 0, 4);
+          gtx.restore();
+        }
+
+        if(!stop && sensorsOn) rafGyro=requestAnimationFrame(()=>drawHorizon(false));
       }
       drawHorizon(true);
 
       // Viz draw helpers
       function getStops(){
-        if(paletteEl.value==="custom") return [cLow.value,cMid.value,cHigh.value];
-        return palettes[paletteEl.value] || palettes.neon;
+        const p = paletteEl.value;
+        if(p==="custom") return [cLow.value,cMid.value,cHigh.value];
+        return palettes[p] || palettes.neon;
       }
       function colorFor(i,bins,amp,dv){
         const t=i/(bins-1);
         let c=colorFromStops(getStops(), t);
-        // emphasize shifts: warm for rising, cyan for falling
         if(dv>0.06) c=mix(c, {r:255,g:180,b:60}, Math.min(0.8, dv*1.2));
         else if(dv<-0.06) c=mix(c, {r:0,g:220,b:255}, Math.min(0.8, -dv*1.2));
         return rgbStr(c,1);
@@ -327,7 +401,7 @@
 
       function drawBars(w,h,bins){
         const barGap=1, barW=Math.max(1, Math.floor(w/bins)-barGap);
-        const sway = gyroEnabled ? (gyro.gamma||0)*0.25 : 0; // tilt sway
+        const sway = sensorsOn ? (orient.gamma||0)*0.25 : 0;
         ctx.shadowBlur=12; ctx.shadowColor="rgba(255,255,255,0.22)";
         for(let i=0;i<bins;i++){
           const v=data[i]/255, amp=Math.pow(v*sensitivity,1.1);
@@ -342,11 +416,11 @@
       function drawCircle(w,h,bins){
         const cx=w/2, cy=h/2;
         const minSide=Math.min(w,h);
-        const baseR = minSide*circleSize;          // controlled by slider
+        const baseR = minSide*circleSize;
         const maxR  = minSide*Math.min(0.49, circleSize+0.20);
 
-        // smooth rotation from gyro
-        const targetRot = gyroEnabled ? (gyro.gamma||0)*Math.PI/180*0.75 : 0;
+        // smooth rotation from roll; if face down, invert
+        const targetRot = (sensorsOn ? ((orient.gamma||0) * Math.PI/180 * 0.75) : 0) + (accel.face==="face down" ? Math.PI : 0);
         rot += (targetRot-rot)*0.08;
 
         ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot);
@@ -383,8 +457,8 @@
       }
 
       async function start(){
-        if(runningViz) return;
         if(!secureOK){ statusEl.textContent="Mic needs HTTPS or localhost."; return; }
+        if(stream) return;
         try{
           statusEl.textContent="Requesting microphone…";
           stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -392,12 +466,12 @@
           analyser = audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.85;
           source = audioCtx.createMediaStreamSource(stream); source.connect(analyser);
           data = new Uint8Array(analyser.frequencyBinCount); prev=new Uint8Array(analyser.frequencyBinCount);
-          runningViz=true; statusEl.textContent="Live (tap Stop to end).";
+          statusEl.textContent="Live (tap Stop to end).";
           cancelAnimationFrame(rafId); draw();
-        }catch(err){ runningViz=false; statusEl.textContent="Mic error: "+(err.message||err.name||err); }
+        }catch(err){ statusEl.textContent="Mic error: "+(err.message||err.name||err); }
       }
       function stop(){
-        runningViz=false; if(rafId) cancelAnimationFrame(rafId);
+        if(rafId) cancelAnimationFrame(rafId);
         if(source){try{source.disconnect();}catch{} source=null;}
         if(analyser) analyser=null;
         if(audioCtx){try{audioCtx.close();}catch{} audioCtx=null;}
@@ -405,7 +479,6 @@
         statusEl.textContent="Stopped.";
       }
 
-      // Events
       startBtn.addEventListener("click",start);
       stopBtn.addEventListener("click",stop);
       sensEl.addEventListener("input",()=>{ sensitivity=parseFloat(sensEl.value); });
@@ -413,11 +486,10 @@
       paletteEl.addEventListener("change",()=>{ const p=paletteEl.value; palette=p; storage.set("opspad:viz:palette",p); customWrap.classList.toggle("hidden",p!=="custom"); });
       [cLow,cMid,cHigh].forEach(inp=>inp.addEventListener("input",()=>{ customStops=[cLow.value,cMid.value,cHigh.value]; storage.set("opspad:viz:custom",customStops); }));
 
-      // pause on background
-      document.addEventListener("visibilitychange",()=>{ if(document.hidden&&runningViz) stop(); });
+      document.addEventListener("visibilitychange",()=>{ if(document.hidden) stop(); });
       window.addEventListener("pagehide",stop);
 
-      // restore last circle size
+      // restore
       const savedCircle=storage.get("opspad:viz:circle",null); if(savedCircle){ circleSize=savedCircle; circleEl.value=String(savedCircle); }
     })();
   </script>
