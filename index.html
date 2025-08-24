@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>OpsPad (Viz: Bars + Circle + Gyro)</title>
+  <title>OpsPad — Viz + Gyro</title>
   <style>
     :root { --bg:#0a0a0a; --panel:#131316; --muted:#a1a1aa; --text:#fafafa; --accent:#ffffff; --border:#27272a; }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -12,7 +12,7 @@
     .wrap { display:flex; flex-direction:column; min-height:100dvh; }
     header { position:sticky; top:0; z-index:10; padding:16px 16px 8px; background:linear-gradient(180deg, rgba(10,10,10,0.9), rgba(10,10,10,0)); backdrop-filter: blur(6px); }
     h1 { margin:0; font-size:20px; font-weight:800; letter-spacing:-0.01em; }
-    main { flex:1; padding:16px; padding-bottom:112px; }
+    main { flex:1; padding:16px; padding-bottom:120px; }
     .tabs { position:fixed; left:0; right:0; bottom:0; background:#0f0f13; border-top:1px solid var(--border); display:grid; grid-template-columns:repeat(5,1fr); }
     .tab { padding:10px 4px; text-align:center; color:#a1a1aa; font-size:11px; }
     .tab.active { color:#fff; }
@@ -21,12 +21,12 @@
     .btn { background:var(--accent); color:#111; font-weight:700; padding:10px 14px; border-radius:12px; border:none; }
     .btn.ghost { background:#1b1b21; color:#e5e5e5; border:1px solid var(--border); }
     input, textarea, select { width:100%; background:#111116; border:1px solid var(--border); color:var(--text); border-radius:12px; padding:12px; font-size:14px; }
+    label.sm { font-size:12px; color:#a1a1aa; }
     ul { list-style:none; padding:0; margin:0; }
     .pill { width:18px; height:18px; border-radius:50%; border:1.5px solid #6b7280; display:grid; place-items:center; }
     .strike { text-decoration: line-through; opacity:0.6; }
     .grid { display:grid; place-items:center; gap:12px; }
     .center { text-align:center; color:#a1a1aa; font-size:13px; }
-    .sm { font-size:12px; color:#a1a1aa; }
     .num { font-variant-numeric: tabular-nums; }
     .hidden { display:none; }
     .progress { transform: rotate(-90deg); }
@@ -37,16 +37,19 @@
     #viz-canvas { width:100%; height:340px; border-radius:16px; background: radial-gradient(1200px 600px at 20% 0%, #121219 0%, #0a0a0a 60%); border:1px solid var(--border); }
     #viz-legend { display:flex; gap:8px; align-items:center; justify-content:center; color:#cfcfe6; font-size:12px; opacity:.85; }
     .dot { width:8px; height:8px; border-radius:999px; display:inline-block; }
-    .seg { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .seg { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .seg > * { flex:0 0 auto; }
     .seg select { width:auto; min-width:140px; }
+    .colors { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .colors input[type=color]{ width:40px; height:36px; padding:0; border-radius:10px; border:1px solid var(--border); background:#111; }
+    #gyro-canvas{ width:100%; height:180px; border-radius:16px; border:1px solid var(--border); background:#0b0f18; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <h1>OpsPad</h1>
-      <div class="sm">offline-first • local only</div>
+      <div class="center" style="font-size:12px;">offline-first • local only</div>
     </header>
 
     <main>
@@ -56,8 +59,8 @@
           <input id="task-input" placeholder="Add a task…"/>
           <button class="btn" type="submit">Add</button>
         </form>
-        <div class="row sm" style="margin-top:8px; justify-content:space-between;">
-          <span id="remaining">0 remaining</span>
+        <div class="row" style="margin-top:8px; justify-content:space-between;">
+          <span id="remaining" class="num">0 remaining</span>
           <button id="clear-done" class="btn ghost">Clear done</button>
         </div>
         <ul id="task-list" class="mt"></ul>
@@ -87,9 +90,9 @@
             <button id="timer-reset" class="btn ghost">Reset</button>
           </div>
           <div class="card" style="width:100%;">
-            <div class="sm">Timer length (minutes)</div>
+            <div class="center" style="font-size:12px;">Timer length (minutes)</div>
             <input type="range" id="timer-range" min="5" max="90" value="25" style="width:100%;"/>
-            <div id="timer-mins" class="sm">25 minutes</div>
+            <div id="timer-mins" class="center" style="font-size:12px;">25 minutes</div>
           </div>
         </div>
       </section>
@@ -97,12 +100,12 @@
       <!-- BPM -->
       <section id="view-bpm" class="hidden">
         <div class="grid">
-          <div class="sm" style="text-transform:uppercase; letter-spacing:0.2em;">Average BPM</div>
+          <div class="center" style="text-transform:uppercase; letter-spacing:0.2em;">Average BPM</div>
           <div id="bpm-value" class="num" style="font-size:46px; font-weight:900;">—</div>
-          <div id="bpm-ms" class="sm"></div>
+          <div id="bpm-ms" class="center" style="font-size:12px;"></div>
           <button id="bpm-tap" class="btn" style="width:160px; height:160px; border-radius:999px; font-size:24px;">TAP</button>
           <button id="bpm-reset" class="btn ghost">Reset</button>
-          <div class="center sm">Tip: tap in time 5–8 times</div>
+          <div class="center" style="font-size:12px;">Tip: tap 5–8 times</div>
         </div>
       </section>
 
@@ -111,457 +114,311 @@
         <div class="card" style="display:flex; flex-direction:column; gap:12px;">
           <canvas id="viz-canvas"></canvas>
 
-          <div id="viz-legend">
-            <span class="dot" style="background:#59f;"></span><span>low</span>
-            <span class="dot" style="background:#0f8;"></span><span>mid</span>
-            <span class="dot" style="background:#f0f;"></span><span>high</span>
-            <span class="dot" style="background:#ffa500;"></span><span>rising</span>
-            <span class="dot" style="background:#00e0ff;"></span><span>falling</span>
-          </div>
-
           <div class="seg">
             <button id="viz-start" class="btn">Start Mic</button>
             <button id="viz-stop" class="btn ghost">Stop</button>
 
-            <label class="sm" for="viz-sens" style="margin-left:8px;">Sensitivity</label>
-            <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:180px;"/>
+            <label class="sm" for="viz-sens">Sensitivity</label>
+            <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:160px;"/>
 
             <label class="sm" for="viz-mode">Mode</label>
             <select id="viz-mode">
               <option value="bars">Bars</option>
-              <option value="circle">Circle</option>
+              <option value="circle" selected>Circle</option>
             </select>
+
+            <label class="sm" for="viz-circle">Circle size</label>
+            <input type="range" id="viz-circle" min="0.18" max="0.45" step="0.01" value="0.28" style="width:150px;"/>
 
             <button id="viz-gyro" class="btn ghost">Enable Gyro</button>
           </div>
 
-          <div id="viz-status" class="sm"></div>
+          <div class="seg">
+            <label class="sm" for="viz-palette">Palette</label>
+            <select id="viz-palette">
+              <option value="neon" selected>Neon</option>
+              <option value="fireice">Fire/Ice</option>
+              <option value="sunset">Sunset</option>
+              <option value="matrix">Matrix</option>
+              <option value="custom">Custom…</option>
+            </select>
+
+            <div id="custom-colors" class="colors hidden">
+              <label class="sm">Low</label><input type="color" id="c-low" value="#4da3ff"/>
+              <label class="sm">Mid</label><input type="color" id="c-mid" value="#00f59a"/>
+              <label class="sm">High</label><input type="color" id="c-high" value="#ff4dff"/>
+            </div>
+          </div>
+
+          <div id="viz-status" class="center" style="font-size:12px;"></div>
+
+          <div class="card" style="display:flex; flex-direction:column; gap:8px;">
+            <div class="row" style="justify-content:space-between;">
+              <div class="sm">Gyro attitude (like a plane)</div>
+              <div class="sm num" id="gyro-readout">pitch 0°, roll 0°</div>
+            </div>
+            <canvas id="gyro-canvas"></canvas>
+          </div>
         </div>
       </section>
     </main>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="tasks">Tasks</button>
+      <button class="tab" data-tab="tasks">Tasks</button>
       <button class="tab" data-tab="notes">Notes</button>
       <button class="tab" data-tab="timer">Timer</button>
       <button class="tab" data-tab="bpm">BPM</button>
-      <button class="tab" data-tab="viz">Viz</button>
+      <button class="tab active" data-tab="viz">Viz</button>
     </nav>
   </div>
 
   <script>
-    // ---------- Helpers
-    const $ = (s) => document.querySelector(s);
-    const $$ = (s) => Array.from(document.querySelectorAll(s));
-    const storage = {
-      get(k, f) { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } },
-      set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+    const $ = (s)=>document.querySelector(s), $$=(s)=>Array.from(document.querySelectorAll(s));
+    const storage = { get(k,f){try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}} };
+
+    // Tabs
+    const sections={tasks:$("#view-tasks"),notes:$("#view-notes"),timer:$("#view-timer"),bpm:$("#view-bpm"),viz:$("#view-viz")};
+    $$(".tabs .tab").forEach(b=>b.addEventListener("click",()=>{const t=b.dataset.tab; $$(".tabs .tab").forEach(x=>x.classList.remove("active")); b.classList.add("active"); Object.keys(sections).forEach(k=>sections[k].classList.toggle("hidden",k!==t));}));
+
+    // Tasks
+    let tasks=storage.get("opspad:tasks",[]); const taskList=$("#task-list"), taskInput=$("#task-input"), remaining=$("#remaining");
+    const uid=()=>Math.random().toString(36).slice(2,9);
+    function renderTasks(){ taskList.innerHTML=""; if(!tasks.length){const li=document.createElement("li"); li.className="center"; li.textContent="No tasks yet. Add your first one above."; taskList.appendChild(li);} else { tasks.forEach(t=>{ const li=document.createElement("li"); li.className="card"; const row=document.createElement("div"); row.className="row"; const pill=document.createElement("button"); pill.className="pill"; if(t.done){pill.style.background="#fff"; pill.style.borderColor="#fff";} pill.addEventListener("click",()=>{t.done=!t.done; storage.set("opspad:tasks",tasks); renderTasks();}); const txt=document.createElement("div"); txt.style.flex="1"; txt.style.fontSize="14px"; txt.textContent=t.text; if(t.done) txt.classList.add("strike"); const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete"; del.addEventListener("click",()=>{tasks=tasks.filter(x=>x.id!==t.id); storage.set("opspad:tasks",tasks); renderTasks();}); row.appendChild(pill); row.appendChild(txt); row.appendChild(del); li.appendChild(row); taskList.appendChild(li);}); }
+      remaining.textContent=`${tasks.filter(x=>!x.done).length} remaining`; }
+    $("#task-form").addEventListener("submit",e=>{e.preventDefault(); const v=taskInput.value.trim(); if(!v) return; tasks.unshift({id:uid(),text:v,done:false,ts:Date.now()}); storage.set("opspad:tasks",tasks); taskInput.value=""; renderTasks();});
+    $("#clear-done").addEventListener("click",()=>{tasks=tasks.filter(x=>!x.done); storage.set("opspad:tasks",tasks); renderTasks();}); renderTasks();
+
+    // Notes
+    let notes=storage.get("opspad:notes",[]); const noteList=$("#note-list"), noteForm=$("#note-form"), noteTitle=$("#note-title"), noteBody=$("#note-body");
+    function renderNotes(){ noteList.innerHTML=""; if(!notes.length){const li=document.createElement("li"); li.className="center"; li.textContent="No notes yet. Write your first one above."; noteList.appendChild(li);} else { notes.forEach(n=>{ const li=document.createElement("li"); li.className="card"; const row=document.createElement("div"); row.className="row"; row.style.alignItems="start"; const col=document.createElement("div"); if(n.title){const h=document.createElement("div"); h.style.fontWeight="700"; h.style.fontSize="14px"; h.style.marginBottom="6px"; h.textContent=n.title; col.appendChild(h);} const p=document.createElement("div"); p.style.fontSize="14px"; p.style.whiteSpace="pre-wrap"; p.textContent=n.body; col.appendChild(p); const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete"; del.addEventListener("click",()=>{notes=notes.filter(x=>x.id!==n.id); storage.set("opspad:notes",notes); renderNotes();}); row.appendChild(col); row.appendChild(del); li.appendChild(row); noteList.appendChild(li);}); } }
+    noteForm.addEventListener("submit",e=>{e.preventDefault(); const t=noteTitle.value.trim(), b=noteBody.value.trim(); if(!t&&!b) return; notes.unshift({id:uid(),title:t,body:b,ts:Date.now()}); storage.set("opspad:notes",notes); noteTitle.value=""; noteBody.value=""; renderNotes();}); renderNotes();
+
+    // Timer
+    let dur=storage.get("opspad:timer:dur",25*60), left=storage.get("opspad:timer:left",dur), running=storage.get("opspad:timer:run",false); let raf=null,last=null;
+    const range=$("#timer-range"), readout=$("#timer-readout"), minsLbl=$("#timer-mins"), circle=$("#timer-progress");
+    const R=54, C=2*Math.PI*R; circle.setAttribute("stroke-dasharray",String(C));
+    function fmt(s){const m=Math.floor(s/60), sec=Math.floor(s%60); return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");}
+    function drawTimer(){ readout.textContent=fmt(left); circle.setAttribute("stroke-dashoffset", String(C - C*Math.max(0,Math.min(1,left/dur)))); }
+    function tick(ts){ if(last==null) last=ts; const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt); storage.set("opspad:timer:left",left); drawTimer(); if(left<=0){ running=false; storage.set("opspad:timer:run",running); last=null; $("#timer-start").textContent="Start"; return;} raf=requestAnimationFrame(tick);}
+    $("#timer-start").addEventListener("click",()=>{ if(!running){ if(left<=0) left=dur; running=true; storage.set("opspad:timer:run",running); raf=requestAnimationFrame(tick); $("#timer-start").textContent="Pause"; } else { running=false; storage.set("opspad:timer:run",running); cancelAnimationFrame(raf); last=null; $("#timer-start").textContent="Start"; }});
+    $("#timer-reset").addEventListener("click",()=>{ running=false; storage.set("opspad:timer:run",running); cancelAnimationFrame(raf); last=null; left=dur; storage.set("opspad:timer:left",left); drawTimer(); $("#timer-start").textContent="Start";});
+    range.value=Math.round(dur/60); minsLbl.textContent=`${range.value} minutes`; range.addEventListener("input",()=>{ dur=Number(range.value)*60; storage.set("opspad:timer:dur",dur); left=dur; storage.set("opspad:timer:left",left); minsLbl.textContent=`${range.value} minutes`; drawTimer();}); drawTimer(); if(running){ $("#timer-start").textContent="Pause"; raf=requestAnimationFrame(tick); }
+
+    // BPM
+    let taps=[]; const bpmValue=$("#bpm-value"), bpmMs=$("#bpm-ms");
+    function updateBPM(){ if(taps.length<2){ bpmValue.textContent="—"; bpmMs.textContent=""; return; } const diffs=taps.slice(1).map((x,i)=>x-taps[i]); const mean=diffs.reduce((a,b)=>a+b,0)/diffs.length; const bpm=60000/mean; bpmValue.textContent=String(Math.round(bpm*10)/10); bpmMs.textContent=`~${Math.round((60000/bpm)*100)/100} ms per beat`; }
+    $("#bpm-tap").addEventListener("click",()=>{ taps=[...taps,performance.now()].slice(-8); updateBPM(); if(navigator.vibrate) navigator.vibrate(10); const b=$("#bpm-tap"); b.style.transform="scale(0.96)"; setTimeout(()=>b.style.transform="",90); }); $("#bpm-reset").addEventListener("click",()=>{taps=[]; updateBPM();});
+
+    // -------- Palette helpers
+    const palettes = {
+      neon:   ["#4da3ff","#00f59a","#ff4dff"],
+      fireice:["#00e0ff","#4d6dff","#ff8a3d","#ff2e2e"],
+      sunset: ["#7c4dff","#ff4db8","#ff8a3d"],
+      matrix: ["#0a2a0a","#00ff6a","#0a2a0a"]
     };
-
-    // ---------- Tabs
-    const sections = {
-      tasks: $("#view-tasks"),
-      notes: $("#view-notes"),
-      timer: $("#view-timer"),
-      bpm: $("#view-bpm"),
-      viz: $("#view-viz"),
-    };
-    $$(".tabs .tab").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const tab = btn.dataset.tab;
-        $$(".tabs .tab").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        Object.keys(sections).forEach(k => {
-          sections[k].classList.toggle("hidden", k !== tab);
-        });
-      });
-    });
-
-    // ---------- Tasks
-    let tasks = storage.get("opspad:tasks", []);
-    const taskList = $("#task-list");
-    const taskInput = $("#task-input");
-    const remaining = $("#remaining");
-    const uid = () => Math.random().toString(36).slice(2,9);
-
-    function renderTasks(){
-      taskList.innerHTML = "";
-      if (tasks.length === 0) {
-        const li = document.createElement("li");
-        li.className = "center";
-        li.textContent = "No tasks yet. Add your first one above.";
-        taskList.appendChild(li);
-      } else {
-        tasks.forEach(t => {
-          const li = document.createElement("li");
-          li.className = "card";
-          const row = document.createElement("div");
-          row.className = "row";
-          const pill = document.createElement("button");
-          pill.className = "pill";
-          pill.setAttribute("aria-label","toggle");
-          if (t.done) { pill.style.background = "#fff"; pill.style.borderColor = "#fff"; }
-          pill.addEventListener("click", () => {
-            t.done = !t.done; storage.set("opspad:tasks", tasks); renderTasks();
-          });
-          const txt = document.createElement("div");
-          txt.style.flex = "1";
-          txt.style.fontSize = "14px";
-          txt.textContent = t.text;
-          if (t.done) txt.classList.add("strike");
-          const del = document.createElement("button");
-          del.className = "btn ghost";
-          del.textContent = "Delete";
-          del.addEventListener("click", () => {
-            tasks = tasks.filter(x => x.id !== t.id);
-            storage.set("opspad:tasks", tasks);
-            renderTasks();
-          });
-          row.appendChild(pill); row.appendChild(txt); row.appendChild(del);
-          li.appendChild(row);
-          taskList.appendChild(li);
-        });
-      }
-      const left = tasks.filter(x => !x.done).length;
-      remaining.textContent = `${left} remaining`;
+    function hexToRgb(hex){ hex=hex.replace("#",""); if(hex.length===3){hex=hex.split("").map(c=>c+c).join("");} const n=parseInt(hex,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
+    function lerp(a,b,t){ return a+(b-a)*t; }
+    function lerpColor(c1,c2,t){ return { r:Math.round(lerp(c1.r,c2.r,t)), g:Math.round(lerp(c1.g,c2.g,t)), b:Math.round(lerp(c1.b,c2.b,t)) }; }
+    function colorFromStops(stops,t){ // t in [0,1]
+      const n=stops.length-1; const x=Math.max(0,Math.min(n-1,Math.floor(t*n))); const local=(t*n)-x;
+      const c1=hexToRgb(stops[x]), c2=hexToRgb(stops[x+1]); const c=lerpColor(c1,c2,local); return c;
     }
-    $("#task-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const v = taskInput.value.trim();
-      if (!v) return;
-      tasks.unshift({id:uid(), text:v, done:false, ts:Date.now()});
-      storage.set("opspad:tasks", tasks);
-      taskInput.value = "";
-      renderTasks();
-    });
-    $("#clear-done").addEventListener("click", () => {
-      tasks = tasks.filter(x => !x.done);
-      storage.set("opspad:tasks", tasks);
-      renderTasks();
-    });
-    renderTasks();
+    function mix(c, withC, amt){ return { r:Math.round(lerp(c.r,withC.r,amt)), g:Math.round(lerp(c.g,withC.g,amt)), b:Math.round(lerp(c.b,withC.b,amt)) }; }
+    function rgbStr(c,a=1){ return `rgba(${c.r},${c.g},${c.b},${a})`; }
 
-    // ---------- Notes
-    let notes = storage.get("opspad:notes", []);
-    const noteList = $("#note-list");
-    const noteForm = $("#note-form");
-    const noteTitle = $("#note-title");
-    const noteBody = $("#note-body");
+    // ---------- Spectrum + Gyro
+    (function(){
+      const startBtn=$("#viz-start"), stopBtn=$("#viz-stop"), sensEl=$("#viz-sens"), modeEl=$("#viz-mode");
+      const circleEl=$("#viz-circle"), paletteEl=$("#viz-palette"), customWrap=$("#custom-colors");
+      const cLow=$("#c-low"), cMid=$("#c-mid"), cHigh=$("#c-high");
+      const statusEl=$("#viz-status"), canvas=$("#viz-canvas"), ctx=canvas.getContext("2d",{alpha:false});
 
-    function renderNotes(){
-      noteList.innerHTML = "";
-      if (notes.length === 0){
-        const li = document.createElement("li");
-        li.className = "center";
-        li.textContent = "No notes yet. Write your first one above.";
-        noteList.appendChild(li);
-      } else {
-        notes.forEach(n => {
-          const li = document.createElement("li");
-          li.className = "card";
-          const row = document.createElement("div");
-          row.className = "row";
-          row.style.alignItems = "start";
-          const col = document.createElement("div");
-          if (n.title){
-            const h = document.createElement("div");
-            h.style.fontWeight = "700"; h.style.fontSize = "14px"; h.style.marginBottom = "6px";
-            h.textContent = n.title;
-            col.appendChild(h);
-          }
-          const p = document.createElement("div");
-          p.style.fontSize = "14px"; p.style.whiteSpace = "pre-wrap";
-          p.textContent = n.body;
-          col.appendChild(p);
-          const del = document.createElement("button");
-          del.className = "btn ghost";
-          del.textContent = "Delete";
-          del.addEventListener("click", () => {
-            notes = notes.filter(x => x.id !== n.id);
-            storage.set("opspad:notes", notes);
-            renderNotes();
-          });
-          row.appendChild(col); row.appendChild(del);
-          li.appendChild(row);
-          noteList.appendChild(li);
-        });
+      let audioCtx=null, analyser=null, source=null, stream=null, data=null, prev=null, rafId=null;
+      let sensitivity=parseFloat(sensEl.value), circleSize=parseFloat(circleEl.value);
+      let runningViz=false;
+      let palette = storage.get("opspad:viz:palette","neon");
+      paletteEl.value = palette;
+      let customStops = storage.get("opspad:viz:custom", [cLow.value, cMid.value, cHigh.value]);
+
+      // Gyro state & horizon
+      const gyroBtn=$("#viz-gyro"), gyroRead=$("#gyro-readout"), gyroCanvas=$("#gyro-canvas"), gtx=gyroCanvas.getContext("2d");
+      let gyroEnabled=false, gyro={alpha:0,beta:0,gamma:0}, rot=0, rafGyro=null;
+
+      // UI restore
+      if(palette==="custom"){ customWrap.classList.remove("hidden"); [cLow.value,cMid.value,cHigh.value]=customStops; }
+
+      // Canvas DPI
+      function sizeCanvas(el, ctx){
+        const dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1)); const r=el.getBoundingClientRect();
+        el.width=Math.floor(r.width*dpr); el.height=Math.floor(r.height*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
       }
-    }
-    noteForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const t = noteTitle.value.trim(), b = noteBody.value.trim();
-      if (!t && !b) return;
-      notes.unshift({id:uid(), title:t, body:b, ts:Date.now()});
-      storage.set("opspad:notes", notes);
-      noteTitle.value = ""; noteBody.value = "";
-      renderNotes();
-    });
-    renderNotes();
+      sizeCanvas(canvas,ctx); new ResizeObserver(()=>sizeCanvas(canvas,ctx)).observe(canvas);
+      sizeCanvas(gyroCanvas,gtx); new ResizeObserver(()=>sizeCanvas(gyroCanvas,gtx)).observe(gyroCanvas);
 
-    // ---------- Timer
-    let dur = storage.get("opspad:timer:dur", 25*60);
-    let left = storage.get("opspad:timer:left", dur);
-    let running = storage.get("opspad:timer:run", false);
-    let raf = null, last = null;
-    const range = $("#timer-range");
-    const readout = $("#timer-readout");
-    const minsLbl = $("#timer-mins");
-    const circle = $("#timer-progress");
-    const btnStart = $("#timer-start");
-    const btnReset = $("#timer-reset");
-    const radius = 54;
-    const C = 2 * Math.PI * radius;
-    circle.setAttribute("stroke-dasharray", String(C));
-    function format(s){ const m=Math.floor(s/60), sec=Math.floor(s%60); return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0"); }
-    function draw(){ readout.textContent = format(left); const pct=Math.max(0,Math.min(1,left/dur)); circle.setAttribute("stroke-dashoffset", String(C - C*pct)); }
-    function tick(ts){ if (last==null) last=ts; const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt); storage.set("opspad:timer:left", left); draw(); if(left<=0){ running=false; storage.set("opspad:timer:run", running); last=null; btnStart.textContent="Start"; return;} raf=requestAnimationFrame(tick); }
-    btnStart.addEventListener("click", () => {
-      if (!running){ if(left<=0) left=dur; running=true; storage.set("opspad:timer:run", running); raf=requestAnimationFrame(tick); btnStart.textContent="Pause"; }
-      else { running=false; storage.set("opspad:timer:run", running); cancelAnimationFrame(raf); last=null; btnStart.textContent="Start"; }
-    });
-    btnReset.addEventListener("click", () => { running=false; storage.set("opspad:timer:run", running); cancelAnimationFrame(raf); last=null; left=dur; storage.set("opspad:timer:left", left); draw(); btnStart.textContent="Start"; });
-    range.value=Math.round(dur/60); minsLbl.textContent=`${range.value} minutes`;
-    range.addEventListener("input", () => { dur=Number(range.value)*60; storage.set("opspad:timer:dur", dur); left=dur; storage.set("opspad:timer:left", left); minsLbl.textContent=`${range.value} minutes`; draw(); });
-    draw(); if (running){ btnStart.textContent="Pause"; raf=requestAnimationFrame(tick); }
+      const secureOK = window.isSecureContext || location.hostname==="localhost" || location.hostname==="127.0.0.1";
 
-    // ---------- BPM Tapper
-    let taps = [];
-    const tapBtn = $("#bpm-tap");
-    const resetBtn = $("#bpm-reset");
-    const bpmValue = $("#bpm-value");
-    const bpmMs = $("#bpm-ms");
-    function updateBPM(){
-      if (taps.length < 2){ bpmValue.textContent = "—"; bpmMs.textContent = ""; return; }
-      const diffs = taps.slice(1).map((x,i)=>x-taps[i]);
-      const mean = diffs.reduce((a,b)=>a+b,0)/diffs.length;
-      const bpm = 60000/mean;
-      bpmValue.textContent = String(Math.round(bpm*10)/10);
-      bpmMs.textContent = `~${Math.round((60000/bpm)*100)/100} ms per beat`;
-    }
-    tapBtn.addEventListener("click", () => {
-      taps = [...taps, performance.now()].slice(-8);
-      updateBPM();
-      if (navigator.vibrate) navigator.vibrate(10);
-      tapBtn.style.transform = "scale(0.96)"; setTimeout(()=> tapBtn.style.transform = "", 80);
-    });
-    resetBtn.addEventListener("click", () => { taps = []; updateBPM(); });
-
-    // ---------- Spectrum Visualizer (Bars + Circle + Gyro)
-    (function setupSpectrum(){
-      const startBtn = $("#viz-start");
-      const stopBtn  = $("#viz-stop");
-      const sensEl   = $("#viz-sens");
-      const modeEl   = $("#viz-mode");
-      const gyroBtn  = $("#viz-gyro");
-      const statusEl = $("#viz-status");
-      const canvas   = $("#viz-canvas");
-      const ctx      = canvas.getContext("2d", { alpha: false });
-
-      let audioCtx=null, analyser=null, source=null, stream=null;
-      let data=null, prev=null, rafId=null;
-      let sensitivity = parseFloat(sensEl.value);
-      let runningViz = false;
-
-      // Gyro state
-      let gyroEnabled = false;
-      let gyro = {alpha:0, beta:0, gamma:0};
-      let rot = 0; // smoothed rotation for circle
-      function onOrient(e){
-        gyro.alpha = e.alpha || 0; // compass
-        gyro.beta  = e.beta  || 0; // front/back
-        gyro.gamma = e.gamma || 0; // left/right
-      }
+      // Gyro enable/disable
+      function onOrient(e){ gyro.alpha=e.alpha||0; gyro.beta=e.beta||0; gyro.gamma=e.gamma||0; }
       async function enableGyro(){
         try{
-          if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
-            const r1 = await DeviceMotionEvent.requestPermission();
-            if (r1 !== "granted") { statusEl.textContent = "Gyro permission denied."; return; }
-          }
-          if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
-            try { await DeviceOrientationEvent.requestPermission(); } catch {}
-          }
-          window.addEventListener("deviceorientation", onOrient, true);
-          gyroEnabled = true;
-          gyroBtn.textContent = "Gyro: On";
-          statusEl.textContent = "Gyro enabled.";
-        } catch(err){
-          statusEl.textContent = "Gyro error: " + (err.message || err);
+          if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){ const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ statusEl.textContent="Gyro permission denied."; return; } }
+          if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch{} }
+          window.addEventListener("deviceorientation",onOrient,true);
+          gyroEnabled=true; gyroBtn.textContent="Gyro: On"; statusEl.textContent="Gyro enabled.";
+          drawHorizon(); // kick loop
+        }catch(err){ statusEl.textContent="Gyro error: "+(err.message||err); }
+      }
+      function disableGyro(){ window.removeEventListener("deviceorientation",onOrient,true); gyroEnabled=false; gyroBtn.textContent="Enable Gyro"; statusEl.textContent="Gyro off."; cancelAnimationFrame(rafGyro); drawHorizon(true); }
+      gyroBtn.addEventListener("click",()=> gyroEnabled?disableGyro():enableGyro());
+
+      // Horizon display (artificial horizon)
+      function drawHorizon(stop=false){
+        const w=gyroCanvas.clientWidth, h=gyroCanvas.clientHeight; gtx.clearRect(0,0,w,h);
+        // background bezel
+        gtx.fillStyle="#0b0f18"; gtx.fillRect(0,0,w,h);
+        const cx=w/2, cy=h/2;
+        // compute pitch/roll
+        const pitch = Math.max(-45, Math.min(45, gyro.beta||0)); // deg
+        const roll  = (gyro.gamma||0); // deg
+        gyroRead.textContent=`pitch ${Math.round(pitch)}°, roll ${Math.round(roll)}°`;
+
+        gtx.save();
+        gtx.translate(cx,cy);
+        gtx.rotate(roll*Math.PI/180);
+
+        // sky/ground
+        const scale=3; // px per degree of pitch
+        const offset = pitch*scale;
+        gtx.fillStyle="#0d1f4a"; gtx.fillRect(-w, -h*2+offset, w*2, h*2); // sky
+        gtx.fillStyle="#3a2412"; gtx.fillRect(-w, 0+offset, w*2, h*2);     // ground
+
+        // horizon line
+        gtx.strokeStyle="#ffffff"; gtx.lineWidth=2;
+        gtx.beginPath(); gtx.moveTo(-w, offset); gtx.lineTo(w, offset); gtx.stroke();
+
+        // center marker
+        gtx.fillStyle="#fff"; gtx.beginPath(); gtx.arc(0,offset,3,0,Math.PI*2); gtx.fill();
+
+        // degree ticks
+        gtx.strokeStyle="rgba(255,255,255,0.6)"; gtx.lineWidth=1;
+        for(let d=-40; d<=40; d+=10){
+          const y=offset + d*scale;
+          gtx.beginPath(); gtx.moveTo(-16,y); gtx.lineTo(16,y); gtx.stroke();
+        }
+        gtx.restore();
+
+        if(!stop && gyroEnabled) rafGyro=requestAnimationFrame(()=>drawHorizon(false));
+      }
+      drawHorizon(true);
+
+      // Viz draw helpers
+      function getStops(){
+        if(paletteEl.value==="custom") return [cLow.value,cMid.value,cHigh.value];
+        return palettes[paletteEl.value] || palettes.neon;
+      }
+      function colorFor(i,bins,amp,dv){
+        const t=i/(bins-1);
+        let c=colorFromStops(getStops(), t);
+        // emphasize shifts: warm for rising, cyan for falling
+        if(dv>0.06) c=mix(c, {r:255,g:180,b:60}, Math.min(0.8, dv*1.2));
+        else if(dv<-0.06) c=mix(c, {r:0,g:220,b:255}, Math.min(0.8, -dv*1.2));
+        return rgbStr(c,1);
+      }
+
+      function drawBars(w,h,bins){
+        const barGap=1, barW=Math.max(1, Math.floor(w/bins)-barGap);
+        const sway = gyroEnabled ? (gyro.gamma||0)*0.25 : 0; // tilt sway
+        ctx.shadowBlur=12; ctx.shadowColor="rgba(255,255,255,0.22)";
+        for(let i=0;i<bins;i++){
+          const v=data[i]/255, amp=Math.pow(v*sensitivity,1.1);
+          const y=Math.max(1, amp*h);
+          const px=Math.floor(i*(barW+barGap) + (sway*(i/bins-0.5))), py=h - y;
+          const dv = prev ? (data[i]-prev[i])/255 : 0;
+          ctx.fillStyle = colorFor(i,bins,amp,dv);
+          ctx.fillRect(px,py,barW,y);
         }
       }
-      function disableGyro(){
-        window.removeEventListener("deviceorientation", onOrient, true);
-        gyroEnabled = false;
-        gyroBtn.textContent = "Enable Gyro";
-        statusEl.textContent = "Gyro off.";
-      }
-      gyroBtn.addEventListener("click", () => gyroEnabled ? disableGyro() : enableGyro());
 
-      function dprSize(){
-        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-        const rect = canvas.getBoundingClientRect();
-        canvas.width  = Math.floor(rect.width  * dpr);
-        canvas.height = Math.floor(rect.height * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
-      }
-      dprSize(); new ResizeObserver(dprSize).observe(canvas);
+      function drawCircle(w,h,bins){
+        const cx=w/2, cy=h/2;
+        const minSide=Math.min(w,h);
+        const baseR = minSide*circleSize;          // controlled by slider
+        const maxR  = minSide*Math.min(0.49, circleSize+0.20);
 
-      const secureOK = window.isSecureContext || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+        // smooth rotation from gyro
+        const targetRot = gyroEnabled ? (gyro.gamma||0)*Math.PI/180*0.75 : 0;
+        rot += (targetRot-rot)*0.08;
 
-      function hueForBin(i, bins){ return (220 + (i/bins) * 160) % 360; }
+        ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot);
+        ctx.lineCap="round"; ctx.shadowBlur=14; ctx.shadowColor="rgba(255,255,255,0.22)";
+        for(let i=0;i<bins;i++){
+          const v=data[i]/255, amp=Math.pow(v*sensitivity,1.05);
+          const r1=baseR, r2=Math.min(maxR, baseR + amp*(maxR-baseR));
+          const a = (i/bins)*Math.PI*2;
+          const x1=Math.cos(a)*r1, y1=Math.sin(a)*r1;
+          const x2=Math.cos(a)*r2, y2=Math.sin(a)*r2;
+          const dv = prev ? (data[i]-prev[i])/255 : 0;
 
-      function drawBars(w, h, bins){
-        const barGap = 1;
-        const barW = Math.max(1, Math.floor(w / bins) - barGap);
-        ctx.shadowBlur = 12; ctx.shadowColor = "rgba(255,255,255,0.22)";
-
-        // slight sway from gyro gamma (tilt left/right)
-        const sway = gyroEnabled ? gyro.gamma * 0.25 : 0;
-
-        for (let i=0; i<bins; i++){
-          const v = data[i] / 255;
-          const y = Math.max(1, Math.pow(v * sensitivity, 1.1) * h);
-          const px = Math.floor(i * (barW + barGap) + (sway * (i/bins - 0.5)));
-          const py = h - y;
-
-          const dv = prev ? (data[i] - prev[i]) / 255 : 0;
-          const baseHue = hueForBin(i, bins);
-          const hueShift = Math.max(-30, Math.min(30, dv * 100));
-          const hue = (baseHue + hueShift + 360) % 360;
-          const sat = 70 + Math.min(25, v*35);
-          const light = 40 + Math.min(30, v*35);
-
-          ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`;
-          ctx.fillRect(px, py, barW, y);
-
-          if (dv > 0.06){
-            ctx.fillStyle = `hsla(${(hue+20)%360} 95% 65% / 0.9)`;
-            ctx.fillRect(px, py-2, barW, 2);
-          }
+          ctx.strokeStyle = colorFor(i,bins,amp,dv);
+          ctx.lineWidth = 2 + amp*3;
+          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
         }
-      }
-
-      function drawCircle(w, h, bins){
-        const cx = w/2, cy = h/2;
-        const baseR = Math.min(w, h) * 0.28;  // inner radius
-        const maxR  = Math.min(w, h) * 0.48;  // outer limit
-
-        // smooth rotation from gyro gamma (left/right tilt)
-        const targetRot = gyroEnabled ? (gyro.gamma || 0) * Math.PI/180 * 0.75 : 0;
-        rot += (targetRot - rot) * 0.08;
-
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(rot);
-
-        ctx.lineCap = "round";
-        ctx.shadowBlur = 14; ctx.shadowColor = "rgba(255,255,255,0.22)";
-
-        for (let i=0; i<bins; i++){
-          const v = data[i] / 255;
-          const amp = Math.pow(v * sensitivity, 1.05);
-          const r1 = baseR;
-          const r2 = Math.min(maxR, baseR + amp * (maxR - baseR));
-
-          const a = (i / bins) * Math.PI * 2;
-          const x1 = Math.cos(a) * r1, y1 = Math.sin(a) * r1;
-          const x2 = Math.cos(a) * r2, y2 = Math.sin(a) * r2;
-
-          const dv = prev ? (data[i] - prev[i]) / 255 : 0;
-          const baseHue = hueForBin(i, bins);
-          const hueShift = Math.max(-30, Math.min(30, dv * 100));
-          const hue = (baseHue + hueShift + 360) % 360;
-          const sat = 70 + Math.min(25, v*35);
-          const light = 45 + Math.min(30, v*35);
-
-          ctx.strokeStyle = `hsl(${hue} ${sat}% ${light}%)`;
-          ctx.lineWidth = 2 + amp * 3;
-
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-
-          // small spark at peaks
-          if (dv > 0.08){
-            ctx.fillStyle = `hsla(${(hue+20)%360} 95% 65% / 0.95)`;
-            ctx.beginPath();
-            ctx.arc(x2, y2, 2.2 + amp*2, 0, Math.PI*2);
-            ctx.fill();
-          }
-        }
-
         ctx.restore();
       }
 
       function draw(){
-        if (!analyser) return;
+        if(!analyser) return;
         analyser.getByteFrequencyData(data);
-
-        // subtle trail to make motion silky
-        ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = "rgba(10,10,12,0.10)";
+        ctx.globalCompositeOperation="source-over";
+        ctx.fillStyle="rgba(10,10,12,0.10)";
         ctx.fillRect(0,0,canvas.width,canvas.height);
 
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        const bins = data.length;
+        const w=canvas.clientWidth, h=canvas.clientHeight, bins=data.length;
+        if(modeEl.value==="bars") drawBars(w,h,bins);
+        else drawCircle(w,h,bins);
 
-        const mode = modeEl.value;
-        if (mode === "bars")  drawBars(w, h, bins);
-        if (mode === "circle") drawCircle(w, h, bins);
-
-        prev = (prev && prev.length === data.length) ? prev : new Uint8Array(bins);
+        prev = (prev && prev.length===data.length) ? prev : new Uint8Array(bins);
         prev.set(data);
-
         rafId = requestAnimationFrame(draw);
       }
 
       async function start(){
-        if (runningViz) return;
-        if (!secureOK){
-          statusEl.textContent = "Microphone requires HTTPS or localhost (cannot run from file://).";
-          return;
-        }
+        if(runningViz) return;
+        if(!secureOK){ statusEl.textContent="Mic needs HTTPS or localhost."; return; }
         try{
-          statusEl.textContent = "Requesting microphone…";
-          stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 1024;
-          analyser.smoothingTimeConstant = 0.85;
-          source = audioCtx.createMediaStreamSource(stream);
-          source.connect(analyser);
-
-          data = new Uint8Array(analyser.frequencyBinCount);
-          prev = new Uint8Array(analyser.frequencyBinCount);
-
-          runningViz = true;
-          statusEl.textContent = "Live (tap Stop to end).";
-          cancelAnimationFrame(rafId);
-          draw();
-        } catch(err){
-          runningViz = false;
-          statusEl.textContent = "Mic error: " + (err.message || err.name || err);
-        }
+          statusEl.textContent="Requesting microphone…";
+          stream = await navigator.mediaDevices.getUserMedia({audio:true});
+          audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+          analyser = audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.85;
+          source = audioCtx.createMediaStreamSource(stream); source.connect(analyser);
+          data = new Uint8Array(analyser.frequencyBinCount); prev=new Uint8Array(analyser.frequencyBinCount);
+          runningViz=true; statusEl.textContent="Live (tap Stop to end).";
+          cancelAnimationFrame(rafId); draw();
+        }catch(err){ runningViz=false; statusEl.textContent="Mic error: "+(err.message||err.name||err); }
       }
-
       function stop(){
-        runningViz = false;
-        if (rafId) cancelAnimationFrame(rafId);
-        if (source) { try{ source.disconnect(); }catch{} source=null; }
-        if (analyser) analyser=null;
-        if (audioCtx) { try{ audioCtx.close(); }catch{} audioCtx=null; }
-        if (stream) { stream.getTracks().forEach(t => t.stop()); stream=null; }
-        statusEl.textContent = "Stopped.";
+        runningViz=false; if(rafId) cancelAnimationFrame(rafId);
+        if(source){try{source.disconnect();}catch{} source=null;}
+        if(analyser) analyser=null;
+        if(audioCtx){try{audioCtx.close();}catch{} audioCtx=null;}
+        if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+        statusEl.textContent="Stopped.";
       }
 
-      startBtn.addEventListener("click", start);
-      stopBtn.addEventListener("click", stop);
-      sensEl.addEventListener("input", () => { sensitivity = parseFloat(sensEl.value); });
+      // Events
+      startBtn.addEventListener("click",start);
+      stopBtn.addEventListener("click",stop);
+      sensEl.addEventListener("input",()=>{ sensitivity=parseFloat(sensEl.value); });
+      circleEl.addEventListener("input",()=>{ circleSize=parseFloat(circleEl.value); storage.set("opspad:viz:circle",circleSize); });
+      paletteEl.addEventListener("change",()=>{ const p=paletteEl.value; palette=p; storage.set("opspad:viz:palette",p); customWrap.classList.toggle("hidden",p!=="custom"); });
+      [cLow,cMid,cHigh].forEach(inp=>inp.addEventListener("input",()=>{ customStops=[cLow.value,cMid.value,cHigh.value]; storage.set("opspad:viz:custom",customStops); }));
 
-      // pause on background / cleanup
-      document.addEventListener("visibilitychange", () => { if (document.hidden && runningViz) stop(); });
-      window.addEventListener("pagehide", stop);
+      // pause on background
+      document.addEventListener("visibilitychange",()=>{ if(document.hidden&&runningViz) stop(); });
+      window.addEventListener("pagehide",stop);
+
+      // restore last circle size
+      const savedCircle=storage.get("opspad:viz:circle",null); if(savedCircle){ circleSize=savedCircle; circleEl.value=String(savedCircle); }
     })();
   </script>
 </body>
