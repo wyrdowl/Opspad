@@ -2,249 +2,308 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
 <title>OpsPad — Viz • Range • Sensors</title>
 <style>
-  :root{--bg:#0a0a0a;--panel:#131316;--text:#fafafa;--muted:#a1a1aa;--accent:#fff;--border:#27272a}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
-  .wrap{display:flex;flex-direction:column;min-height:100dvh}
-  header{position:sticky;top:0;z-index:10;padding:16px 16px 8px;background:linear-gradient(180deg,rgba(10,10,10,.9),rgba(10,10,10,0));backdrop-filter:blur(6px)}
-  h1{margin:0;font-size:20px;font-weight:800}
-  main{flex:1;padding:16px;padding-bottom:152px}
-  .tabs{position:fixed;left:0;right:0;bottom:0;background:#0f0f13;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(7,1fr)}
-  .tab{padding:10px 4px;text-align:center;color:#a1a1aa;font-size:11px}
-  .tab.active{color:#fff}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:12px}
-  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .btn{background:var(--accent);color:#111;font-weight:700;padding:10px 14px;border-radius:12px;border:none}
-  .btn.ghost{background:#1b1b21;color:#e5e5e5;border:1px solid var(--border)}
-  input,textarea,select{width:100%;background:#111116;border:1px solid var(--border);color:var(--text);border-radius:12px;padding:12px;font-size:14px}
-  .center{color:#a1a1aa;font-size:13px;text-align:center}
-  .hidden{display:none}
+  :root { --bg:#0a0a0a; --panel:#131316; --text:#fafafa; --muted:#a1a1aa; --accent:#ffffff; --border:#27272a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; }
+  .wrap { display:flex; flex-direction:column; min-height:100dvh; }
+  header { position:sticky; top:0; z-index:10; padding:16px 16px 8px; background:linear-gradient(180deg, rgba(10,10,10,.9), rgba(10,10,10,0)); backdrop-filter:blur(6px); }
+  h1 { margin:0; font-size:20px; font-weight:800; letter-spacing:-.01em; }
+  main { flex:1; padding:16px; padding-bottom:152px; }
+  /* center sections on wide screens */
+  main > section { max-width:900px; margin-inline:auto; }
+  .tabs { position:fixed; left:0; right:0; bottom:0; background:#0f0f13; border-top:1px solid var(--border); display:grid; grid-template-columns:repeat(7,1fr); }
+  .tab { padding:10px 4px; text-align:center; color:#a1a1aa; font-size:11px; }
+  .tab.active { color:#fff; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; }
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .btn { background:var(--accent); color:#111; font-weight:700; padding:10px 14px; border-radius:12px; border:none; }
+  .btn.ghost { background:#1b1b21; color:#e5e5e5; border:1px solid var(--border); }
+  input, textarea, select { width:100%; background:#111116; border:1px solid var(--border); color:var(--text); border-radius:12px; padding:12px; font-size:14px; }
+  .center { text-align:center; color:#a1a1aa; font-size:13px; }
+  .hidden { display:none; }
+  ul { list-style:none; padding:0; margin:0; }
+
+  /* key/value grid */
+  .kv { display:grid; grid-template-columns:140px 1fr; gap:8px 12px; align-items:center; }
+  .kv .k { color:#c9c9d6; font-size:12px; }
+  .kv .v { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; }
+  @media (max-width:480px){
+    .kv { grid-template-columns:112px 1fr; }
+    .row > label { width:100%; }
+    .row > select, .row > input[type="range"], .row > button { flex:1; }
+    #view-bpm .row { justify-content:center; }
+  }
+
   /* Viz */
-  #viz-canvas{width:100%;height:340px;border-radius:16px;border:1px solid var(--border);background:radial-gradient(1200px 600px at 20% 0%,#121219 0%,#0a0a0a 60%)}
-  /* Range */
-  .range-wrap{position:relative}
-  #range-video{width:100%;height:360px;object-fit:cover;border-radius:16px;border:1px solid var(--border);background:#000}
-  .range-overlay{position:absolute;inset:0;pointer-events:none;border-radius:16px}
-  .range-crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:140px;height:140px;border:1px solid rgba(255,255,255,.45);border-radius:50%}
-  .range-crosshair:before,.range-crosshair:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.7)}
-  .range-crosshair:before{width:1px;height:120px}
-  .range-crosshair:after{width:120px;height:1px}
-  .range-hud{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.35);color:#fff;font-size:12px;padding:6px 8px;border-radius:10px;backdrop-filter:blur(4px)}
-  .range-bottom{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;gap:10px;pointer-events:none}
-  .range-tag{background:rgba(0,0,0,.35);color:#fff;font-size:12px;padding:6px 8px;border-radius:10px}
-  /* Sensors table */
-  .kv{display:grid;grid-template-columns:150px 1fr;gap:8px 12px;align-items:center}
-  .kv .k{color:#c9c9d6;font-size:12px}
-  .kv .v{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
-  #gyro-canvas{width:100%;height:180px;border-radius:16px;border:1px solid var(--border);background:#0b0f18}
+  #viz-canvas { width:100%; height:340px; border-radius:16px; border:1px solid var(--border);
+    background:radial-gradient(1200px 600px at 20% 0%, #121219 0%, #0a0a0a 60%); }
+
+  /* Rangefinder */
+  .range-wrap { position:relative; }
+  #range-video { width:100%; height:360px; object-fit:cover; border-radius:16px; border:1px solid var(--border); background:#000; }
+  .range-overlay { position:absolute; inset:0; pointer-events:none; border-radius:16px; }
+  .range-crosshair { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:140px; height:140px; border:1px solid rgba(255,255,255,.45); border-radius:50%; }
+  .range-crosshair:before, .range-crosshair:after { content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,.7); }
+  .range-crosshair:before { width:1px; height:120px; }
+  .range-crosshair:after  { width:120px; height:1px; }
+  .range-hud { position:absolute; left:12px; top:12px; background:rgba(0,0,0,.35); color:#fff; font-size:12px; padding:6px 8px; border-radius:10px; backdrop-filter:blur(4px); }
+  .range-bottom { position:absolute; left:12px; right:12px; bottom:12px; display:flex; justify-content:space-between; gap:10px; pointer-events:none; }
+  .range-tag { background:rgba(0,0,0,.35); color:#fff; font-size:12px; padding:6px 8px; border-radius:10px; }
+
+  /* Attitude canvas */
+  #gyro-canvas { width:100%; height:180px; border-radius:16px; border:1px solid var(--border); background:#0b0f18; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>OpsPad</h1>
-    <div class="center" style="font-size:12px">offline-first • local only</div>
-  </header>
+  <div class="wrap">
+    <header>
+      <h1>OpsPad</h1>
+      <div class="center" style="font-size:12px">offline-first • local only</div>
+    </header>
 
-  <main>
-    <!-- Tasks -->
-    <section id="view-tasks">
-      <form id="task-form" class="row"><input id="task-input" placeholder="Add a task…"/><button class="btn" type="submit">Add</button></form>
-      <ul id="task-list" class="row" style="margin-top:8px"></ul>
-    </section>
+    <main>
+      <!-- Tasks -->
+      <section id="view-tasks">
+        <form id="task-form" class="row">
+          <input id="task-input" placeholder="Add a task…"/>
+          <button class="btn" type="submit">Add</button>
+        </form>
+        <ul id="task-list" class="row" style="margin-top:8px;"></ul>
+      </section>
 
-    <!-- Notes -->
-    <section id="view-notes" class="hidden">
-      <form id="note-form"><input id="note-title" placeholder="Title (optional)"/><div style="height:8px"></div><textarea id="note-body" rows="4" placeholder="Write a note…"></textarea><div class="row" style="justify-content:end"><button class="btn">Save</button></div></form>
-      <ul id="note-list" class="row" style="margin-top:8px"></ul>
-    </section>
+      <!-- Notes -->
+      <section id="view-notes" class="hidden">
+        <form id="note-form">
+          <input id="note-title" placeholder="Title (optional)"/>
+          <div style="height:8px"></div>
+          <textarea id="note-body" rows="4" placeholder="Write a note…"></textarea>
+          <div class="row" style="justify-content:flex-end"><button class="btn" type="submit">Save</button></div>
+        </form>
+        <ul id="note-list" class="row" style="margin-top:8px;"></ul>
+      </section>
 
-    <!-- Timer -->
-    <section id="view-timer" class="hidden">
-      <div class="center" id="timer-readout" style="font-size:40px;font-weight:800">25:00</div>
-      <div class="row"><button id="timer-start" class="btn">Start</button><button id="timer-reset" class="btn ghost">Reset</button><input type="range" id="timer-range" min="5" max="90" value="25" style="flex:1"/></div>
-    </section>
-
-    <!-- BPM -->
-    <section id="view-bpm" class="hidden">
-      <div class="center" style="text-transform:uppercase;letter-spacing:.2em">Average BPM</div>
-      <div id="bpm-value" class="center" style="font-size:46px;font-weight:900">—</div>
-      <div id="bpm-ms" class="center" style="font-size:12px"></div>
-      <div class="row" style="justify-content:center"><button id="bpm-tap" class="btn" style="width:160px;height:160px;border-radius:999px;font-size:24px">TAP</button><button id="bpm-reset" class="btn ghost">Reset</button></div>
-    </section>
-
-    <!-- Visualiser (no attitude UI here anymore) -->
-    <section id="view-viz" class="hidden">
-      <div class="card" style="display:flex;flex-direction:column;gap:12px">
-        <canvas id="viz-canvas"></canvas>
+      <!-- Timer -->
+      <section id="view-timer" class="hidden">
+        <div class="center" id="timer-readout" style="font-size:40px; font-weight:800;">25:00</div>
         <div class="row">
-          <button id="viz-start" class="btn">Start Mic</button>
-          <button id="viz-stop" class="btn ghost">Stop</button>
-          <label>Mode</label>
-          <select id="viz-mode"><option value="bars">Bars</option><option value="circle" selected>Circle</option></select>
-          <label>Sensitivity</label>
-          <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:150px"/>
-          <label>Circle size</label>
-          <input type="range" id="viz-circle" min="0.18" max="0.45" step="0.01" value="0.28" style="width:150px"/>
+          <button id="timer-start" class="btn">Start</button>
+          <button id="timer-reset" class="btn ghost">Reset</button>
+          <label>Minutes</label>
+          <input type="range" id="timer-range" min="5" max="90" value="25" style="flex:1;"/>
         </div>
-        <div id="viz-status" class="center" style="font-size:12px"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Range Finder -->
-    <section id="view-range" class="">
-      <div class="card">
-        <div class="range-wrap">
-          <video id="range-video" playsinline muted autoplay></video>
-          <div class="range-overlay">
-            <div class="range-hud" id="range-hud">pitch —° • depression —°</div>
-            <div class="range-crosshair"></div>
-            <div class="range-bottom">
-              <div class="range-tag" id="range-distance">distance —</div>
-              <div class="range-tag" id="range-face">face —</div>
+      <!-- BPM -->
+      <section id="view-bpm" class="hidden">
+        <div class="center" style="text-transform:uppercase; letter-spacing:.2em;">Average BPM</div>
+        <div id="bpm-value" class="center" style="font-size:46px; font-weight:900;">—</div>
+        <div id="bpm-ms" class="center" style="font-size:12px;"></div>
+        <div class="row" style="justify-content:center;">
+          <button id="bpm-tap" class="btn" style="width:160px; height:160px; border-radius:999px; font-size:24px;">TAP</button>
+          <button id="bpm-reset" class="btn ghost">Reset</button>
+        </div>
+      </section>
+
+      <!-- Visualizer -->
+      <section id="view-viz" class="hidden">
+        <div class="card" style="display:flex; flex-direction:column; gap:12px;">
+          <canvas id="viz-canvas"></canvas>
+          <div class="row">
+            <button id="viz-start" class="btn">Start Mic</button>
+            <button id="viz-stop" class="btn ghost">Stop</button>
+            <label>Mode</label>
+            <select id="viz-mode"><option value="bars">Bars</option><option value="circle" selected>Circle</option></select>
+            <label>Sensitivity</label>
+            <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:150px;"/>
+            <label>Circle size</label>
+            <input type="range" id="viz-circle" min="0.18" max="0.45" step="0.01" value="0.28" style="width:150px;"/>
+          </div>
+          <div id="viz-status" class="center" style="font-size:12px;"></div>
+        </div>
+      </section>
+
+      <!-- Range Finder -->
+      <section id="view-range" class="">
+        <div class="card">
+          <div class="range-wrap">
+            <video id="range-video" playsinline muted autoplay></video>
+            <div class="range-overlay">
+              <div class="range-hud" id="range-hud">pitch —° • depression —°</div>
+              <div class="range-crosshair"></div>
+              <div class="range-bottom">
+                <div class="range-tag" id="range-distance">distance —</div>
+                <div class="range-tag" id="range-face">face —</div>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <button id="range-start" class="btn">Start Camera</button>
-          <button id="range-stop" class="btn ghost">Stop</button>
-          <button id="range-sensors" class="btn ghost">Enable Sensors</button>
-          <label>Height (m)</label><input type="range" id="range-height" min="0.3" max="2.5" step="0.01" value="1.60" style="width:160px"/>
-          <label>Units</label>
-          <select id="range-units"><option value="m" selected>meters</option><option value="ft">feet</option></select>
-          <button id="range-cal" class="btn ghost">Calibrate</button>
-          <button id="range-lock" class="btn ghost">Lock</button>
-        </div>
-        <div class="center" id="range-status" style="font-size:12px;margin-top:6px"></div>
-      </div>
-    </section>
 
-    <!-- Sensors -->
-    <section id="view-sensors" class="hidden">
-      <div class="card" style="display:flex;flex-direction:column;gap:12px">
-        <div class="row">
-          <button id="sns-orient" class="btn ghost">Enable Orientation</button>
-          <button id="sns-magnet" class="btn ghost">Enable Magnetometer</button>
-          <button id="sns-light" class="btn ghost">Enable Ambient Light</button>
-          <button id="sns-gps" class="btn ghost">Enable GPS</button>
+          <div class="row" style="margin-top:10px;">
+            <button id="range-start" class="btn">Start Camera</button>
+            <button id="range-stop" class="btn ghost">Stop</button>
+            <button id="range-sensors" class="btn ghost">Enable Sensors</button>
+
+            <label>Height (m)</label>
+            <input type="range" id="range-height" min="0.3" max="2.5" step="0.01" value="1.60" style="width:160px;"/>
+
+            <label>Units</label>
+            <select id="range-units"><option value="m" selected>meters</option><option value="ft">feet</option></select>
+
+            <button id="range-cal" class="btn ghost">Calibrate</button>
+            <button id="range-lock" class="btn ghost">Lock</button>
+          </div>
+
+          <div class="center" id="range-status" style="font-size:12px; margin-top:6px;"></div>
         </div>
+      </section>
 
-        <div id="sns-status" class="center" style="font-size:12px"></div>
+      <!-- Sensors -->
+      <section id="view-sensors" class="hidden">
+        <div class="card" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="row">
+            <button id="sns-orient" class="btn ghost">Enable Orientation</button>
+            <button id="sns-magnet" class="btn ghost">Enable Magnetometer</button>
+            <button id="sns-light" class="btn ghost">Enable Ambient Light</button>
+            <button id="sns-gps" class="btn ghost">Enable GPS</button>
+          </div>
 
-        <div class="kv">
-          <div class="k">Pitch / Roll</div><div class="v" id="sns-pr">—</div>
-          <div class="k">Heading</div><div class="v" id="sns-head">—</div>
-          <div class="k">Face</div><div class="v" id="sns-face">—</div>
+          <div id="sns-status" class="center" style="font-size:12px;"></div>
+
+          <div class="kv">
+            <div class="k">Pitch / Roll</div><div class="v" id="sns-pr">—</div>
+            <div class="k">Heading</div><div class="v" id="sns-head">—</div>
+            <div class="k">Face</div><div class="v" id="sns-face">—</div>
+          </div>
+
+          <div class="row" style="justify-content:space-between;">
+            <div class="row">
+              <button id="h-cal" class="btn ghost">Calibrate level</button>
+              <button id="h-flip" class="btn ghost">Flip horizon</button>
+            </div>
+            <div id="h-label" class="center" style="font-size:12px;"></div>
+          </div>
+          <canvas id="gyro-canvas"></canvas>
+
+          <div class="kv" style="margin-top:8px;">
+            <div class="k">Magnetometer (µT)</div><div class="v" id="sns-mag">—</div>
+            <div class="k">|B|</div><div class="v" id="sns-mag-mag">—</div>
+            <div class="k">Mag status</div><div class="v" id="sns-mag-status">Not started</div>
+            <div class="k">Ambient light</div><div class="v" id="sns-lux">—</div>
+            <div class="k">Light status</div><div class="v" id="sns-lux-status">Not started</div>
+            <div class="k">GPS lat/lon</div><div class="v" id="sns-ll">—</div>
+            <div class="k">GPS accuracy</div><div class="v" id="sns-acc">—</div>
+            <div class="k">Altitude</div><div class="v" id="sns-alt">—</div>
+            <div class="k">Speed / Heading</div><div class="v" id="sns-speed">—</div>
+            <div class="k">GPS status</div><div class="v" id="sns-gps-status">Not started</div>
+            <div class="k">Barometer</div><div class="v">Not available in browsers (native only)</div>
+          </div>
         </div>
+      </section>
+    </main>
 
-        <!-- Attitude indicator lives here -->
-        <div class="row" style="justify-content:space-between">
-          <div class="row"><button id="h-cal" class="btn ghost">Calibrate level</button><button id="h-flip" class="btn ghost">Flip horizon</button></div>
-          <div class="center" id="h-label" style="font-size:12px"></div>
-        </div>
-        <canvas id="gyro-canvas"></canvas>
-
-        <div class="kv" style="margin-top:8px">
-          <div class="k">Magnetometer (µT)</div><div class="v" id="sns-mag">—</div>
-          <div class="k">|B|</div><div class="v" id="sns-mag-mag">—</div>
-          <div class="k">Mag status</div><div class="v" id="sns-mag-status">Not started</div>
-          <div class="k">Ambient light</div><div class="v" id="sns-lux">—</div>
-          <div class="k">Light status</div><div class="v" id="sns-lux-status">Not started</div>
-          <div class="k">GPS lat/lon</div><div class="v" id="sns-ll">—</div>
-          <div class="k">GPS accuracy</div><div class="v" id="sns-acc">—</div>
-          <div class="k">Altitude</div><div class="v" id="sns-alt">—</div>
-          <div class="k">Speed/Heading</div><div class="v" id="sns-speed">—</div>
-          <div class="k">GPS status</div><div class="v" id="sns-gps-status">Not started</div>
-          <div class="k">Barometer</div><div class="v">Not available in browsers (native only)</div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <nav class="tabs">
-    <button class="tab" data-tab="tasks">Tasks</button>
-    <button class="tab" data-tab="notes">Notes</button>
-    <button class="tab" data-tab="timer">Timer</button>
-    <button class="tab" data-tab="bpm">BPM</button>
-    <button class="tab" data-tab="viz">Viz</button>
-    <button class="tab active" data-tab="range">Range</button>
-    <button class="tab" data-tab="sensors">Sensors</button>
-  </nav>
-</div>
+    <nav class="tabs">
+      <button class="tab" data-tab="tasks">Tasks</button>
+      <button class="tab" data-tab="notes">Notes</button>
+      <button class="tab" data-tab="timer">Timer</button>
+      <button class="tab" data-tab="bpm">BPM</button>
+      <button class="tab" data-tab="viz">Viz</button>
+      <button class="tab active" data-tab="range">Range</button>
+      <button class="tab" data-tab="sensors">Sensors</button>
+    </nav>
+  </div>
 
 <script>
-const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
-const storage={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const storage = { get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}} };
+function degreesToCardinal(deg){if(deg==null||isNaN(deg))return"—"; const d=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW","N"]; return d[Math.round(deg/22.5)];}
+function sizeCanvas(el,ctx){const dpr=Math.max(1,Math.min(3,devicePixelRatio||1)); const r=el.getBoundingClientRect(); el.width=Math.floor(r.width*dpr); el.height=Math.floor(r.height*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);}
+function accelPitchRoll(ax,ay,az){ const RAD=180/Math.PI; return { pitch: Math.atan2(-ax, Math.hypot(ay,az))*RAD, roll: Math.atan2(ay, az)*RAD }; }
 
-// tabs
-const sections={tasks:"#view-tasks",notes:"#view-notes",timer:"#view-timer",bpm:"#view-bpm",viz:"#view-viz",range:"#view-range",sensors:"#view-sensors"};
-$$(".tabs .tab").forEach(b=>b.addEventListener("click",()=>{const t=b.dataset.tab; $$(".tabs .tab").forEach(x=>x.classList.remove("active")); b.classList.add("active"); Object.entries(sections).forEach(([k,sel])=>$(sel).classList.toggle("hidden",k!==t));}));
+/* ---------- tabs ---------- */
+const sections = {tasks:"#view-tasks", notes:"#view-notes", timer:"#view-timer", bpm:"#view-bpm", viz:"#view-viz", range:"#view-range", sensors:"#view-sensors"};
+$$(".tabs .tab").forEach(b=>b.addEventListener("click",()=>{
+  const t=b.dataset.tab; $$(".tabs .tab").forEach(x=>x.classList.remove("active")); b.classList.add("active");
+  Object.entries(sections).forEach(([k,sel])=>$(sel).classList.toggle("hidden",k!==t));
+}));
 
-// simple tasks/notes/timer/bpm (unchanged, trimmed)
-let tasks=storage.get("opspad:tasks",[]); const taskList=$("#task-list"); function renderTasks(){taskList.innerHTML=""; if(!tasks.length){const p=document.createElement("div"); p.className="center"; p.textContent="No tasks"; taskList.appendChild(p)} else {tasks.forEach(t=>{const d=document.createElement("div"); d.className="row card"; const txt=document.createElement("div"); txt.style.flex="1"; txt.textContent=t.text; const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete"; del.onclick=()=>{tasks=tasks.filter(x=>x!==t); storage.set("opspad:tasks",tasks); renderTasks()}; d.append(txt,del); taskList.appendChild(d)})}}; renderTasks();
-$("#task-form").addEventListener("submit",e=>{e.preventDefault(); const v=$("#task-input").value.trim(); if(!v) return; tasks.unshift({text:v}); storage.set("opspad:tasks",tasks); $("#task-input").value=""; renderTasks()});
-let taps=[]; $("#bpm-tap").onclick=()=>{taps=[...taps,performance.now()].slice(-8); const d=taps.slice(1).map((x,i)=>x-taps[i]); if(d.length){const m=d.reduce((a,b)=>a+b,0)/d.length; $("#bpm-value").textContent=(60000/m).toFixed(1); $("#bpm-ms").textContent=`~${(m).toFixed(1)} ms/beat`}}; $("#bpm-reset").onclick=()=>{taps=[]; $("#bpm-value").textContent="—"; $("#bpm-ms").textContent=""};
-let dur=25*60,left=dur,run=false,raf=null,last=null; function fmt(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`} $("#timer-readout").textContent=fmt(left);
-$("#timer-start").onclick=()=>{if(!run){run=true; $("#timer-start").textContent="Pause"; raf=requestAnimationFrame(tick)}else{run=false; $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null}}; $("#timer-reset").onclick=()=>{run=false; left=dur; $("#timer-readout").textContent=fmt(left); $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null}; $("#timer-range").oninput=e=>{dur=Number(e.target.value)*60; left=dur; $("#timer-readout").textContent=fmt(left)};
-function tick(ts){if(last==null) last=ts; const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt); $("#timer-readout").textContent=fmt(left); if(left>0&&run) raf=requestAnimationFrame(tick)}
+/* ---------- tasks/notes/timer/bpm (lightweight) ---------- */
+let tasks = storage.get("opspad:tasks",[]);
+const taskList=$("#task-list"); function renderTasks(){taskList.innerHTML=""; if(!tasks.length){const p=document.createElement("div"); p.className="center"; p.textContent="No tasks"; taskList.appendChild(p);} else {tasks.forEach(t=>{const row=document.createElement("div"); row.className="row card"; const txt=document.createElement("div"); txt.style.flex="1"; txt.textContent=t.text; const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete"; del.onclick=()=>{tasks=tasks.filter(x=>x!==t); storage.set("opspad:tasks",tasks); renderTasks();}; row.append(txt,del); taskList.appendChild(row);});}} renderTasks();
+$("#task-form").addEventListener("submit",e=>{e.preventDefault();const v=$("#task-input").value.trim();if(!v)return;tasks.unshift({text:v});storage.set("opspad:tasks",tasks);$("#task-input").value="";renderTasks();});
 
-// ========== Shared helpers
-function degreesToCardinal(deg){if(deg==null||isNaN(deg))return"—"; const d=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW","N"]; return d[Math.round(deg/22.5)]}
-function sizeCanvas(el,ctx){const dpr=Math.max(1,Math.min(3,devicePixelRatio||1));const r=el.getBoundingClientRect();el.width=Math.floor(r.width*dpr);el.height=Math.floor(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
-function accelPitchRoll(ax,ay,az){ // robust pitch/roll from gravity vector
-  const RAD=180/Math.PI;
-  const pitch=Math.atan2(-ax, Math.hypot(ay,az))*RAD; // front/back
-  const roll =Math.atan2( ay, az)*RAD;                 // left/right
-  return {pitch,roll};
-}
+let taps=[]; $("#bpm-tap").onclick=()=>{taps=[...taps,performance.now()].slice(-8); const d=taps.slice(1).map((x,i)=>x-taps[i]); if(!d.length){$("#bpm-value").textContent="—"; $("#bpm-ms").textContent=""; return;} const mean=d.reduce((a,b)=>a+b,0)/d.length; $("#bpm-value").textContent=(60000/mean).toFixed(1); $("#bpm-ms").textContent=`~${mean.toFixed(1)} ms/beat`;};
+$("#bpm-reset").onclick=()=>{taps=[]; $("#bpm-value").textContent="—"; $("#bpm-ms").textContent="";};
 
-// ========== Visualiser (unchanged except no attitude UI)
+let dur=25*60,left=dur,run=false,raf=null,last=null;
+function fmt(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;}
+$("#timer-readout").textContent=fmt(left);
+function tick(ts){if(last==null)last=ts; const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt); $("#timer-readout").textContent=fmt(left); if(left>0&&run) raf=requestAnimationFrame(tick);}
+$("#timer-start").onclick=()=>{if(!run){run=true; $("#timer-start").textContent="Pause"; raf=requestAnimationFrame(tick);} else {run=false; $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null;}};
+$("#timer-reset").onclick=()=>{run=false; left=dur; $("#timer-readout").textContent=fmt(left); $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null;};
+$("#timer-range").oninput=e=>{dur=Number(e.target.value)*60; left=dur; $("#timer-readout").textContent=fmt(left);};
+
+/* ---------- Visualizer ---------- */
 (function(){
   const canvas=$("#viz-canvas"), ctx=canvas.getContext("2d",{alpha:false});
-  const sensEl=$("#viz-sens"), modeEl=$("#viz-mode"), circleEl=$("#viz-circle"); sizeCanvas(canvas,ctx); new ResizeObserver(()=>sizeCanvas(canvas,ctx)).observe(canvas);
-  let audioCtx=null, analyser=null, source=null, stream=null, data=null, prev=null, sensitivity=parseFloat(sensEl.value), circleSize=parseFloat(circleEl.value), rot=0;
-  const palettes=[["#4da3ff","#00f59a","#ff4dff"],["#00e0ff","#4d6dff","#ff8a3d","#ff2e2e"],["#7c4dff","#ff4db8","#ff8a3d"],["#0a2a0a","#00ff6a","#0a2a0a"]];
+  sizeCanvas(canvas,ctx); new ResizeObserver(()=>sizeCanvas(canvas,ctx)).observe(canvas);
+  let audioCtx=null, analyser=null, source=null, stream=null, data=null, prev=null;
+  let sensitivity=parseFloat($("#viz-sens").value), circleSize=parseFloat($("#viz-circle").value), rot=0;
   function hex(h){h=h.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");const n=parseInt(h,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
   function lerp(a,b,t){return a+(b-a)*t} function mix(c1,c2,t){return{r:Math.round(lerp(c1.r,c2.r,t)),g:Math.round(lerp(c1.g,c2.g,t)),b:Math.round(lerp(c1.b,c2.b,t))}} function rgb(c,a=1){return`rgba(${c.r},${c.g},${c.b},${a})`}
-  function grad(stops,t){const n=stops.length-1; const i=Math.floor(t*n); const c1=hex(stops[i]),c2=hex(stops[Math.min(n,i+1)]); return mix(c1,c2,(t*n-i))}
-  function color(i,bins,amp,dv){const c=grad(palettes[0], i/(bins-1)); return rgb(c,1)}
-  function drawBars(w,h,b){const gap=1,wid=Math.max(1,Math.floor(w/b)-gap); for(let i=0;i<b;i++){const v=data[i]/255,amp=Math.pow(v*sensitivity,1.1); const y=Math.max(1,amp*h),x=i*(wid+gap),py=h-y; ctx.fillStyle=color(i,b,amp,0); ctx.fillRect(x,py,wid,y)}}
-  function drawCircle(w,h,b){const cx=w/2,cy=h/2,m=Math.min(w,h),r0=m*circleSize,r1=m*Math.min(.49,circleSize+.2); ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot); ctx.lineCap="round"; ctx.shadowBlur=14; ctx.shadowColor="rgba(255,255,255,.22)";
-    for(let i=0;i<b;i++){const v=data[i]/255,amp=Math.pow(v*sensitivity,1.05),a=i/b*Math.PI*2,x1=Math.cos(a)*r0,y1=Math.sin(a)*r0,x2=Math.cos(a)*Math.min(r1,r0+amp*(r1-r0)),y2=Math.sin(a)*Math.min(r1,r0+amp*(r1-r0)); ctx.strokeStyle=color(i,b,amp,0); ctx.lineWidth=2+amp*3; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()} ctx.restore()}
-  function loop(){if(!analyser) return; analyser.getByteFrequencyData(data); ctx.fillStyle="rgba(10,10,12,.10)"; ctx.fillRect(0,0,canvas.width,canvas.height); const w=canvas.clientWidth,h=canvas.clientHeight,b=data.length; (modeEl.value==="bars")?drawBars(w,h,b):drawCircle(w,h,b); prev ??= new Uint8Array(b); prev.set(data); requestAnimationFrame(loop)}
-  $("#viz-start").onclick=async()=>{try{$("#viz-status").textContent="Requesting mic…"; stream=await navigator.mediaDevices.getUserMedia({audio:true}); audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.85; source=audioCtx.createMediaStreamSource(stream); source.connect(analyser); data=new Uint8Array(analyser.frequencyBinCount); prev=new Uint8Array(analyser.frequencyBinCount); $("#viz-status").textContent="Live"; loop()}catch(e){$("#viz-status").textContent="Mic error: "+(e.message||e)}}
-  $("#viz-stop").onclick=()=>{if(source){try{source.disconnect()}catch{}} if(stream){stream.getTracks().forEach(t=>t.stop())} if(audioCtx){try{audioCtx.close()}catch{}} analyser=null; $("#viz-status").textContent="Stopped"}
-  $("#viz-sens").oninput=e=>sensitivity=parseFloat(e.target.value); $("#viz-circle").oninput=e=>circleSize=parseFloat(e.target.value);
+  const stops=["#4da3ff","#00f59a","#ff4dff"]; function grad(t){const n=stops.length-1,i=Math.floor(t*n);return mix(hex(stops[i]),hex(stops[Math.min(n,i+1)]),(t*n-i))}
+  function drawBars(w,h,b){const gap=1, wid=Math.max(1,Math.floor(w/b)-gap); for(let i=0;i<b;i++){const v=data[i]/255, amp=Math.pow(v*sensitivity,1.1); const y=Math.max(1,amp*h), x=i*(wid+gap), py=h-y; ctx.fillStyle=rgb(grad(i/(b-1))); ctx.fillRect(x,py,wid,y);}}
+  function drawCircle(w,h,b){const cx=w/2,cy=h/2,m=Math.min(w,h),r0=m*circleSize,r1=m*Math.min(.49,circleSize+.2); ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot); ctx.lineCap="round"; ctx.shadowBlur=14; ctx.shadowColor="rgba(255,255,255,.22)"; for(let i=0;i<b;i++){const v=data[i]/255, amp=Math.pow(v*sensitivity,1.05), a=i/b*Math.PI*2, x1=Math.cos(a)*r0, y1=Math.sin(a)*r0, x2=Math.cos(a)*Math.min(r1,r0+amp*(r1-r0)), y2=Math.sin(a)*Math.min(r1,r0+amp*(r1-r0)); ctx.strokeStyle=rgb(grad(i/(b-1))); ctx.lineWidth=2+amp*3; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); } ctx.restore();}
+  function loop(){ if(!analyser) return; analyser.getByteFrequencyData(data); ctx.fillStyle="rgba(10,10,12,.10)"; ctx.fillRect(0,0,canvas.width,canvas.height); const w=canvas.clientWidth,h=canvas.clientHeight,b=data.length; ($("#viz-mode").value==="bars")?drawBars(w,h,b):drawCircle(w,h,b); prev ??= new Uint8Array(b); prev.set(data); requestAnimationFrame(loop); }
+  $("#viz-start").onclick=async()=>{ try{ $("#viz-status").textContent="Requesting mic…"; stream=await navigator.mediaDevices.getUserMedia({audio:true}); audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.85; source=audioCtx.createMediaStreamSource(stream); source.connect(analyser); data=new Uint8Array(analyser.frequencyBinCount); prev=new Uint8Array(analyser.frequencyBinCount); $("#viz-status").textContent="Live"; loop(); }catch(e){ $("#viz-status").textContent="Mic error: "+(e.message||e); } };
+  $("#viz-stop").onclick=()=>{ if(source){try{source.disconnect()}catch{}} if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} if(audioCtx){try{audioCtx.close()}catch{}} analyser=null; $("#viz-status").textContent="Stopped."; };
+  $("#viz-sens").oninput=e=>sensitivity=parseFloat(e.target.value);
+  $("#viz-circle").oninput=e=>circleSize=parseFloat(e.target.value);
 })();
 
-// ========== Range Finder (uses accelerometer pitch; fallback to orientation)
+/* ---------- Range Finder (camera + inclinometer) ---------- */
 (function(){
   const v=$("#range-video"), hud=$("#range-hud"), faceEl=$("#range-face"), distEl=$("#range-distance"), statusEl=$("#range-status");
   const startBtn=$("#range-start"), stopBtn=$("#range-stop"), sensBtn=$("#range-sensors"), hEl=$("#range-height"), uEl=$("#range-units"), calBtn=$("#range-cal"), lockBtn=$("#range-lock");
   let stream=null, sensorsOn=false, locked=false;
   let pitchOri=0, pitchAcc=0, zero=0, height=parseFloat(hEl.value), units=uEl.value;
-  function toFeet(m){return m*3.28084} function fmt(m){return units==="m"?`${(m<10?m.toFixed(2):m.toFixed(1))} m`:`${(toFeet(m)<10?toFeet(m).toFixed(2):toFeet(m).toFixed(1))} ft`}
-  async function startCam(){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false}); v.srcObject=stream; await v.play(); statusEl.textContent="Camera live. Calibrate, then aim at the base."}catch(e){statusEl.textContent="Camera error: "+(e.message||e)}}
-  function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null} v.srcObject=null; statusEl.textContent="Camera stopped"}
-  let face="—"; function onMotion(e){const a=e.accelerationIncludingGravity||e.acceleration; if(!a) return; const ax=a.x||0,ay=a.y||0,az=a.z||0; const pr=accelPitchRoll(ax,ay,az); pitchAcc=pr.pitch; const absZ=Math.abs(az),absX=Math.abs(ax),absY=Math.abs(ay); face=(absZ>6&&absZ>absX&&absZ>absY)?(az<0?"face up":"face down"):"vertical"; faceEl.textContent=face}
-  function onOrient(e){pitchOri=e.beta||0}
-  async function enable(){try{if(typeof DeviceMotionEvent!=="undefined"&&typeof DeviceMotionEvent.requestPermission==="function"){const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){statusEl.textContent="Motion permission denied."; return}} if(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"){try{await DeviceOrientationEvent.requestPermission()}catch{}} addEventListener("devicemotion",onMotion,true); addEventListener("deviceorientation",onOrient,true); sensorsOn=true; sensBtn.textContent="Sensors: On"; statusEl.textContent="Sensors enabled"}catch(e){statusEl.textContent="Sensor error: "+(e.message||e)}}
-  function disable(){removeEventListener("devicemotion",onMotion,true); removeEventListener("deviceorientation",onOrient,true); sensorsOn=false; sensBtn.textContent="Enable Sensors"; statusEl.textContent="Sensors off"}
-  function effectivePitch(){ // prefer accelerometer if moving
-    const p = Math.abs(pitchAcc)>1 ? pitchAcc : pitchOri;
-    return p;
-  }
-  function loop(){const p=effectivePitch(); const dep=(p-zero); hud.textContent=`pitch ${Math.round(p)}° • depression ${Math.round(dep)}°`; if(!locked){ if(dep>1){const rad=dep*Math.PI/180; const dist=height/Math.tan(rad); distEl.textContent = isFinite(dist)&&dist<10000 ? `distance ${fmt(dist)}` : "distance —"} else {distEl.textContent="distance —"} } requestAnimationFrame(loop)}
+
+  function toFeet(m){return m*3.28084} function fmt(m){return units==="m" ? `${(m<10?m.toFixed(2):m.toFixed(1))} m` : `${(toFeet(m)<10?toFeet(m).toFixed(2):toFeet(m).toFixed(1))} ft`;}
+  async function startCam(){ try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}, audio:false}); v.srcObject=stream; await v.play(); statusEl.textContent="Camera live. Calibrate level, then aim at base of target."; }catch(e){ statusEl.textContent="Camera error: "+(e.message||e); } }
+  function stopCam(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } v.srcObject=null; statusEl.textContent="Camera stopped."; }
+
+  let face="—";
+  function onMotion(e){ const a=e.accelerationIncludingGravity||e.acceleration; if(!a) return; const ax=a.x||0, ay=a.y||0, az=a.z||0; const pr=accelPitchRoll(ax,ay,az); pitchAcc=pr.pitch; const absZ=Math.abs(az), absX=Math.abs(ax), absY=Math.abs(ay); face=(absZ>6&&absZ>absX&&absZ>absY)?(az<0?"face up":"face down"):"vertical"; faceEl.textContent=face; }
+  function onOrient(e){ pitchOri=e.beta||0; }
+  function effectivePitch(){ return Math.abs(pitchAcc)>1 ? pitchAcc : pitchOri; }
+
+  async function enable(){ try{
+    if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){ const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ statusEl.textContent="Motion permission denied."; return; } }
+    if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch{} }
+    addEventListener("devicemotion", onMotion, true);
+    addEventListener("deviceorientation", onOrient, true);
+    sensorsOn=true; sensBtn.textContent="Sensors: On"; statusEl.textContent="Sensors enabled.";
+  }catch(e){ statusEl.textContent="Sensor error: "+(e.message||e); } }
+
+  function disable(){ removeEventListener("devicemotion", onMotion, true); removeEventListener("deviceorientation", onOrient, true); sensorsOn=false; sensBtn.textContent="Enable Sensors"; statusEl.textContent="Sensors off."; }
+
+  function loop(){ const p=effectivePitch(); const dep=(p - zero); hud.textContent=`pitch ${Math.round(p)}° • depression ${Math.round(dep)}°`; if(!locked){ if(dep>1){ const rad=dep*Math.PI/180; const dist=height/Math.tan(rad); distEl.textContent = isFinite(dist)&&dist<10000 ? `distance ${fmt(dist)}` : "distance —"; } else { distEl.textContent="distance —"; } } requestAnimationFrame(loop); }
   loop();
-  startBtn.onclick=startCam; stopBtn.onclick=stopCam; sensBtn.onclick=()=>sensorsOn?disable():enable(); hEl.oninput=e=>height=parseFloat(e.target.value); uEl.onchange=e=>{units=e.target.value}
-  calBtn.onclick=()=>{zero=effectivePitch(); statusEl.textContent=`Calibrated at ${Math.round(zero)}°`}; lockBtn.onclick=()=>{locked=!locked; lockBtn.textContent=locked?"Unlock":"Lock"}
+
+  startBtn.onclick=startCam; stopBtn.onclick=stopCam;
+  sensBtn.onclick=()=>sensorsOn?disable():enable();
+  hEl.oninput=e=>height=parseFloat(e.target.value);
+  uEl.onchange=e=>{ units=e.target.value; };
+  calBtn.onclick=()=>{ zero=effectivePitch(); statusEl.textContent=`Calibrated at ${Math.round(zero)}°`; };
+  lockBtn.onclick=()=>{ locked=!locked; lockBtn.textContent=locked?"Unlock":"Lock"; };
+
+  addEventListener("pagehide",()=>{ if(stream){stream.getTracks().forEach(t=>t.stop());} });
 })();
 
-// ========== Sensors tab (attitude indicator + extra sensors)
+/* ---------- Sensors tab (attitude + extra sensors) ---------- */
 (function(){
   const st=$("#sns-status"), vPR=$("#sns-pr"), vHead=$("#sns-head"), vFace=$("#sns-face");
   const g=$("#gyro-canvas"), ctx=g.getContext("2d"); sizeCanvas(g,ctx); new ResizeObserver(()=>sizeCanvas(g,ctx)).observe(g);
@@ -252,53 +311,134 @@ function accelPitchRoll(ax,ay,az){ // robust pitch/roll from gravity vector
   let head=null, face="—", pitch=0, roll=0;
 
   function draw(){
-    const w=g.clientWidth,h=g.clientHeight,cx=w/2,cy=h/2;
+    const w=g.clientWidth, h=g.clientHeight, cx=w/2, cy=h/2;
     ctx.clearRect(0,0,w,h);
-    const inv = flip ? !(face==="face down") : (face==="face down");
-    const pitchAdj=(inv?-(pitch-zero):(pitch-zero));
-    const rollAdj = (roll*Math.PI/180)+(inv?Math.PI:0);
-    const scale=3, offset=pitchAdj*scale;
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate(rollAdj);
-    if(!inv){ctx.fillStyle="#0d1f4a";ctx.fillRect(-w,-h*2+offset,w*2,h*2);ctx.fillStyle="#3a2412";ctx.fillRect(-w,0+offset,w*2,h*2)}
-    else     {ctx.fillStyle="#3a2412";ctx.fillRect(-w,-h*2+offset,w*2,h*2);ctx.fillStyle="#0d1f4a";ctx.fillRect(-w,0+offset,w*2,h*2)}
-    ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-w,offset);ctx.lineTo(w,offset);ctx.stroke(); ctx.restore();
-    requestAnimationFrame(draw)
-  } draw();
+
+    // which way is up? (honor Flip + face up/down)
+    const invertedByFace = (face === "face down");
+    const inverted = flip ? !invertedByFace : invertedByFace;
+
+    // pixels per degree (±45° visible)
+    const pxPerDeg = h/90;
+    const pitchPx  = (inverted ? -(pitch - zero) : (pitch - zero)) * pxPerDeg;
+    const rollRad  = (roll*Math.PI/180) + (inverted ? Math.PI : 0);
+
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(rollRad);
+
+    // sky/ground
+    ctx.fillStyle = inverted ? "#3a2412" : "#0d1f4a";
+    ctx.fillRect(-w, -h*2 + pitchPx, w*2, h*2);
+    ctx.fillStyle = inverted ? "#0d1f4a" : "#3a2412";
+    ctx.fillRect(-w, 0 + pitchPx, w*2, h*2);
+
+    // horizon
+    ctx.strokeStyle="#ffffff";
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(-w, pitchPx); ctx.lineTo(w, pitchPx); ctx.stroke();
+
+    // pitch ladder: ticks every 5°, labels every 10°
+    ctx.lineWidth=1.3;
+    ctx.strokeStyle="rgba(255,255,255,0.85)";
+    ctx.fillStyle="rgba(255,255,255,0.92)";
+    ctx.font="11px system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial";
+    for(let d=-45; d<=45; d+=5){
+      if(d===0) continue;
+      const y = pitchPx - d*pxPerDeg;
+      const major = (d % 10 === 0);
+      const len = major ? 26 : 16;
+
+      ctx.beginPath(); ctx.moveTo(-len,y); ctx.lineTo(len,y); ctx.stroke();
+
+      if(major){
+        const label = Math.abs(d) + "°";
+        ctx.textAlign="left";  ctx.fillText(label, len+6, y+3);
+        ctx.textAlign="right"; ctx.fillText(label, -len-6, y+3);
+      }
+    }
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+  draw();
 
   function onMotion(e){
     const a=e.accelerationIncludingGravity||e.acceleration; if(!a) return;
     const pr=accelPitchRoll(a.x||0,a.y||0,a.z||0); pitch=pr.pitch; roll=pr.roll;
-    const z=a.z||0, ax=a.x||0, ay=a.y||0; const absZ=Math.abs(z),absX=Math.abs(ax),absY=Math.abs(ay);
-    face=(absZ>6&&absZ>absX&&absZ>absY)?(z<0?"face up":"face down"):"vertical"; vFace.textContent=face;
-    vPR.textContent=`${Math.round(pitch)} / ${Math.round(roll)} deg`;
+    const z=a.z||0, ax=a.x||0, ay=a.y||0; const absZ=Math.abs(z), absX=Math.abs(ax), absY=Math.abs(ay);
+    face=(absZ>6 && absZ>absX && absZ>absY) ? (z<0?"face up":"face down") : "vertical";
+    vFace.textContent=face; vPR.textContent=`${Math.round(pitch)} / ${Math.round(roll)} deg`;
   }
   function onOrient(e){
-    const a=(typeof e.webkitCompassHeading==="number")?(360 - e.webkitCompassHeading)%360:(e.alpha??null);
-    if(a!=null){head=a<0?a+360:a>=360?a-360:a; vHead.textContent=`${Math.round(head)}° (${degreesToCardinal(head)})`}
+    const a=(typeof e.webkitCompassHeading==="number") ? (360 - e.webkitCompassHeading)%360 : (e.alpha ?? null);
+    if(a!=null){ head = a<0? a+360 : (a>=360 ? a-360 : a); vHead.textContent=`${Math.round(head)}° (${degreesToCardinal(head)})`; }
   }
-  $("#sns-orient").onclick=async()=>{try{
-    if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){st.textContent="Motion permission denied."; return}}
-    if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){try{await DeviceOrientationEvent.requestPermission()}catch{}}
-    addEventListener("devicemotion",onMotion,true); addEventListener("deviceorientation",onOrient,true);
-    st.textContent="Orientation enabled."
-  }catch(e){st.textContent="Orientation error: "+(e.message||e)}};
-  calBtn.onclick=()=>{zero=pitch; st.textContent=`Level set at ${Math.round(zero)}°`};
-  flipBtn.onclick=()=>{flip=!flip; storage.set("opspad:hflip",flip); st.textContent=flip?"Horizon flipped":"Horizon normal"};
 
-  // Magnetometer
-  let mag=null; $("#sns-magnet").onclick=()=>{ if(!('Magnetometer' in window)){ $("#sns-mag-status").textContent="Unsupported"; return }
-    if(!mag){ try{ mag=new Magnetometer({frequency:10}); mag.addEventListener('reading',()=>{const x=mag.x||0,y=mag.y||0,z=mag.z||0; const m=Math.hypot(x,y,z); $("#sns-mag").textContent=`${x.toFixed(1)} / ${y.toFixed(1)} / ${z.toFixed(1)}`; $("#sns-mag-mag").textContent=`${m.toFixed(1)}`}); mag.addEventListener('error',e=>$("#sns-mag-status").textContent=`Error: ${e.error&&e.error.name?e.error.name:e.message||e}`); mag.start(); $("#sns-mag-status").textContent="Running"; $("#sns-magnet").textContent="Magnetometer: On"}catch{ $("#sns-mag-status").textContent="Blocked by permissions/policy" } }
-    else { try{mag.stop()}catch{} mag=null; $("#sns-mag-status").textContent="Stopped"; $("#sns-magnet").textContent="Enable Magnetometer" } };
+  $("#sns-orient").onclick=async()=>{ try{
+    if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){ const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ st.textContent="Motion permission denied."; return; } }
+    if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch{} }
+    addEventListener("devicemotion", onMotion, true);
+    addEventListener("deviceorientation", onOrient, true);
+    st.textContent="Orientation enabled.";
+  }catch(e){ st.textContent="Orientation error: "+(e.message||e); } };
 
-  // Ambient light
-  let lux=null; $("#sns-light").onclick=()=>{ if(!('AmbientLightSensor' in window)){ $("#sns-lux-status").textContent="Unsupported"; return }
-    if(!lux){ try{ lux=new AmbientLightSensor({frequency:5}); lux.addEventListener('reading',()=>$("#sns-lux").textContent=`${lux.illuminance.toFixed(1)} lux`); lux.addEventListener('error',e=>$("#sns-lux-status").textContent=`Error: ${e.error&&e.error.name?e.error.name:e.message||e}`); lux.start(); $("#sns-lux-status").textContent="Running"; $("#sns-light").textContent="Ambient Light: On"}catch{ $("#sns-lux-status").textContent="Blocked by permissions/policy" } }
-    else { try{lux.stop()}catch{} lux=null; $("#sns-lux-status").textContent="Stopped"; $("#sns-light").textContent="Enable Ambient Light" } };
+  calBtn.onclick=()=>{ zero=pitch; st.textContent=`Level set at ${Math.round(zero)}°`; };
+  flipBtn.onclick=()=>{ flip=!flip; storage.set("opspad:hflip",flip); st.textContent = flip ? "Horizon flipped" : "Horizon normal"; };
 
-  // GPS
-  let watch=null; $("#sns-gps").onclick=()=>{ if(!navigator.geolocation){ $("#sns-gps-status").textContent="Unsupported"; return }
-    if(watch==null){ watch=navigator.geolocation.watchPosition(p=>{const c=p.coords; $("#sns-ll").textContent=`${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`; $("#sns-acc").textContent=`±${Math.round(c.accuracy)} m`; $("#sns-alt").textContent=c.altitude!=null?`${c.altitude.toFixed(1)} m`:"—"; const sp=(c.speed!=null&&isFinite(c.speed))?`${c.speed.toFixed(1)} m/s (${(c.speed*3.6).toFixed(1)} km/h)`:"—"; const hd=(c.heading!=null&&isFinite(c.heading))?`${Math.round(c.heading)}° (${degreesToCardinal(c.heading)})`:"—"; $("#sns-speed").textContent=`${sp} • ${hd}`; $("#sns-gps-status").textContent="Watching…" },e=>$("#sns-gps-status").textContent=`Error: ${e.message}`,{enableHighAccuracy:true,maximumAge:2000,timeout:10000}); $("#sns-gps").textContent="GPS: On"}
-    else { navigator.geolocation.clearWatch(watch); watch=null; $("#sns-gps-status").textContent="Stopped"; $("#sns-gps").textContent="Enable GPS" } };
+  // magnetometer
+  let mag=null;
+  $("#sns-magnet").onclick=()=>{
+    if(!('Magnetometer' in window)){ $("#sns-mag-status").textContent="Unsupported"; return; }
+    if(!mag){
+      try{
+        mag=new Magnetometer({frequency:10});
+        mag.addEventListener('reading',()=>{
+          const x=mag.x||0,y=mag.y||0,z=mag.z||0, m=Math.hypot(x,y,z);
+          $("#sns-mag").textContent=`${x.toFixed(1)} / ${y.toFixed(1)} / ${z.toFixed(1)}`;
+          $("#sns-mag-mag").textContent=`${m.toFixed(1)}`;
+        });
+        mag.addEventListener('error',e=>$("#sns-mag-status").textContent=`Error: ${e.error&&e.error.name?e.error.name:e.message||e}`));
+        mag.start(); $("#sns-mag-status").textContent="Running"; $("#sns-magnet").textContent="Magnetometer: On";
+      }catch{ $("#sns-mag-status").textContent="Blocked by permissions/policy"; }
+    }else{ try{mag.stop()}catch{} mag=null; $("#sns-mag-status").textContent="Stopped"; $("#sns-magnet").textContent="Enable Magnetometer"; }
+  };
+
+  // ambient light
+  let lux=null;
+  $("#sns-light").onclick=()=>{
+    if(!('AmbientLightSensor' in window)){ $("#sns-lux-status").textContent="Unsupported"; return; }
+    if(!lux){
+      try{
+        lux=new AmbientLightSensor({frequency:5});
+        lux.addEventListener('reading',()=>$("#sns-lux").textContent=`${lux.illuminance.toFixed(1)} lux`);
+        lux.addEventListener('error',e=>$("#sns-lux-status").textContent=`Error: ${e.error&&e.error.name?e.error.name:e.message||e}`));
+        lux.start(); $("#sns-lux-status").textContent="Running"; $("#sns-light").textContent="Ambient Light: On";
+      }catch{ $("#sns-lux-status").textContent="Blocked by permissions/policy"; }
+    }else{ try{lux.stop()}catch{} lux=null; $("#sns-lux-status").textContent="Stopped"; $("#sns-light").textContent="Enable Ambient Light"; }
+  };
+
+  // gps
+  let watch=null;
+  $("#sns-gps").onclick=()=>{
+    if(!navigator.geolocation){ $("#sns-gps-status").textContent="Unsupported"; return; }
+    if(watch==null){
+      watch=navigator.geolocation.watchPosition(p=>{
+        const c=p.coords;
+        $("#sns-ll").textContent=`${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`;
+        $("#sns-acc").textContent=`±${Math.round(c.accuracy)} m`;
+        $("#sns-alt").textContent=(c.altitude!=null)?`${c.altitude.toFixed(1)} m`:"—";
+        const sp=(c.speed!=null&&isFinite(c.speed))?`${c.speed.toFixed(1)} m/s (${(c.speed*3.6).toFixed(1)} km/h)`:"—";
+        const hd=(c.heading!=null&&isFinite(c.heading))?`${Math.round(c.heading)}° (${degreesToCardinal(c.heading)})`:"—";
+        $("#sns-speed").textContent=`${sp} • ${hd}`;
+        $("#sns-gps-status").textContent="Watching…";
+      }, e=>$("#sns-gps-status").textContent=`Error: ${e.message}`, { enableHighAccuracy:true, maximumAge:2000, timeout:10000 });
+      $("#sns-gps").textContent="GPS: On";
+    }else{
+      navigator.geolocation.clearWatch(watch); watch=null;
+      $("#sns-gps-status").textContent="Stopped"; $("#sns-gps").textContent="Enable GPS";
+    }
+  };
 })();
 </script>
 </body>
