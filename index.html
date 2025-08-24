@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>OpsPad (with Spectrum Visualizer)</title>
+  <title>OpsPad (Viz: Bars + Circle + Gyro)</title>
   <style>
     :root { --bg:#0a0a0a; --panel:#131316; --muted:#a1a1aa; --text:#fafafa; --accent:#ffffff; --border:#27272a; }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -20,22 +20,26 @@
     .row { display:flex; align-items:center; gap:8px; }
     .btn { background:var(--accent); color:#111; font-weight:700; padding:10px 14px; border-radius:12px; border:none; }
     .btn.ghost { background:#1b1b21; color:#e5e5e5; border:1px solid var(--border); }
-    input, textarea { width:100%; background:#111116; border:1px solid var(--border); color:var(--text); border-radius:12px; padding:12px; font-size:14px; }
+    input, textarea, select { width:100%; background:#111116; border:1px solid var(--border); color:var(--text); border-radius:12px; padding:12px; font-size:14px; }
     ul { list-style:none; padding:0; margin:0; }
     .pill { width:18px; height:18px; border-radius:50%; border:1.5px solid #6b7280; display:grid; place-items:center; }
     .strike { text-decoration: line-through; opacity:0.6; }
     .grid { display:grid; place-items:center; gap:12px; }
-    .center { text-align:center; color:var(--muted); font-size:13px; }
-    .sm { font-size:12px; color:var(--muted); }
+    .center { text-align:center; color:#a1a1aa; font-size:13px; }
+    .sm { font-size:12px; color:#a1a1aa; }
     .num { font-variant-numeric: tabular-nums; }
     .hidden { display:none; }
     .progress { transform: rotate(-90deg); }
     .spacer { height:8px; }
     .mt { margin-top:8px; }
+
     /* Visualizer */
-    #viz-canvas { width:100%; height:320px; border-radius:16px; background: radial-gradient(1200px 600px at 20% 0%, #121219 0%, #0a0a0a 60%); border:1px solid var(--border); }
-    #viz-legend { display:flex; gap:8px; align-items:center; justify-content:center; color:#cfcfe6; font-size:12px; opacity:.8; }
+    #viz-canvas { width:100%; height:340px; border-radius:16px; background: radial-gradient(1200px 600px at 20% 0%, #121219 0%, #0a0a0a 60%); border:1px solid var(--border); }
+    #viz-legend { display:flex; gap:8px; align-items:center; justify-content:center; color:#cfcfe6; font-size:12px; opacity:.85; }
     .dot { width:8px; height:8px; border-radius:999px; display:inline-block; }
+    .seg { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .seg > * { flex:0 0 auto; }
+    .seg select { width:auto; min-width:140px; }
   </style>
 </head>
 <body>
@@ -106,6 +110,7 @@
       <section id="view-viz" class="hidden">
         <div class="card" style="display:flex; flex-direction:column; gap:12px;">
           <canvas id="viz-canvas"></canvas>
+
           <div id="viz-legend">
             <span class="dot" style="background:#59f;"></span><span>low</span>
             <span class="dot" style="background:#0f8;"></span><span>mid</span>
@@ -113,16 +118,23 @@
             <span class="dot" style="background:#ffa500;"></span><span>rising</span>
             <span class="dot" style="background:#00e0ff;"></span><span>falling</span>
           </div>
-          <div class="row" style="justify-content:space-between;">
-            <div class="row">
-              <button id="viz-start" class="btn">Start Mic</button>
-              <button id="viz-stop" class="btn ghost">Stop</button>
-            </div>
-            <div style="min-width:180px;">
-              <div class="sm">Sensitivity</div>
-              <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:180px;"/>
-            </div>
+
+          <div class="seg">
+            <button id="viz-start" class="btn">Start Mic</button>
+            <button id="viz-stop" class="btn ghost">Stop</button>
+
+            <label class="sm" for="viz-sens" style="margin-left:8px;">Sensitivity</label>
+            <input type="range" id="viz-sens" min="0.6" max="2.5" step="0.1" value="1.2" style="width:180px;"/>
+
+            <label class="sm" for="viz-mode">Mode</label>
+            <select id="viz-mode">
+              <option value="bars">Bars</option>
+              <option value="circle">Circle</option>
+            </select>
+
+            <button id="viz-gyro" class="btn ghost">Enable Gyro</button>
           </div>
+
           <div id="viz-status" class="sm"></div>
         </div>
       </section>
@@ -300,8 +312,8 @@
     const radius = 54;
     const C = 2 * Math.PI * radius;
     circle.setAttribute("stroke-dasharray", String(C));
-    function format(s){ const m = Math.floor(s/60); const sec = Math.floor(s%60); return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0"); }
-    function draw(){ readout.textContent = format(left); const pct = Math.max(0, Math.min(1, left/dur)); circle.setAttribute("stroke-dashoffset", String(C - C*pct)); }
+    function format(s){ const m=Math.floor(s/60), sec=Math.floor(s%60); return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0"); }
+    function draw(){ readout.textContent = format(left); const pct=Math.max(0,Math.min(1,left/dur)); circle.setAttribute("stroke-dashoffset", String(C - C*pct)); }
     function tick(ts){ if (last==null) last=ts; const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt); storage.set("opspad:timer:left", left); draw(); if(left<=0){ running=false; storage.set("opspad:timer:run", running); last=null; btnStart.textContent="Start"; return;} raf=requestAnimationFrame(tick); }
     btnStart.addEventListener("click", () => {
       if (!running){ if(left<=0) left=dur; running=true; storage.set("opspad:timer:run", running); raf=requestAnimationFrame(tick); btnStart.textContent="Pause"; }
@@ -334,19 +346,55 @@
     });
     resetBtn.addEventListener("click", () => { taps = []; updateBPM(); });
 
-    // ---------- Spectrum Visualizer (funky colours w/ shift highlighting)
+    // ---------- Spectrum Visualizer (Bars + Circle + Gyro)
     (function setupSpectrum(){
       const startBtn = $("#viz-start");
       const stopBtn  = $("#viz-stop");
       const sensEl   = $("#viz-sens");
+      const modeEl   = $("#viz-mode");
+      const gyroBtn  = $("#viz-gyro");
       const statusEl = $("#viz-status");
       const canvas   = $("#viz-canvas");
       const ctx      = canvas.getContext("2d", { alpha: false });
 
-      let audioCtx = null, analyser = null, source = null, stream = null;
-      let data = null, prev = null, rafId = null;
+      let audioCtx=null, analyser=null, source=null, stream=null;
+      let data=null, prev=null, rafId=null;
       let sensitivity = parseFloat(sensEl.value);
       let runningViz = false;
+
+      // Gyro state
+      let gyroEnabled = false;
+      let gyro = {alpha:0, beta:0, gamma:0};
+      let rot = 0; // smoothed rotation for circle
+      function onOrient(e){
+        gyro.alpha = e.alpha || 0; // compass
+        gyro.beta  = e.beta  || 0; // front/back
+        gyro.gamma = e.gamma || 0; // left/right
+      }
+      async function enableGyro(){
+        try{
+          if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+            const r1 = await DeviceMotionEvent.requestPermission();
+            if (r1 !== "granted") { statusEl.textContent = "Gyro permission denied."; return; }
+          }
+          if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+            try { await DeviceOrientationEvent.requestPermission(); } catch {}
+          }
+          window.addEventListener("deviceorientation", onOrient, true);
+          gyroEnabled = true;
+          gyroBtn.textContent = "Gyro: On";
+          statusEl.textContent = "Gyro enabled.";
+        } catch(err){
+          statusEl.textContent = "Gyro error: " + (err.message || err);
+        }
+      }
+      function disableGyro(){
+        window.removeEventListener("deviceorientation", onOrient, true);
+        gyroEnabled = false;
+        gyroBtn.textContent = "Enable Gyro";
+        statusEl.textContent = "Gyro off.";
+      }
+      gyroBtn.addEventListener("click", () => gyroEnabled ? disableGyro() : enableGyro());
 
       function dprSize(){
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -359,9 +407,90 @@
 
       const secureOK = window.isSecureContext || location.hostname === "localhost" || location.hostname === "127.0.0.1";
 
-      function hueForBin(i, bins){
-        // base hue by frequency (low=blue, mid=green, high=magenta)
-        return (220 + (i/bins) * 160) % 360;
+      function hueForBin(i, bins){ return (220 + (i/bins) * 160) % 360; }
+
+      function drawBars(w, h, bins){
+        const barGap = 1;
+        const barW = Math.max(1, Math.floor(w / bins) - barGap);
+        ctx.shadowBlur = 12; ctx.shadowColor = "rgba(255,255,255,0.22)";
+
+        // slight sway from gyro gamma (tilt left/right)
+        const sway = gyroEnabled ? gyro.gamma * 0.25 : 0;
+
+        for (let i=0; i<bins; i++){
+          const v = data[i] / 255;
+          const y = Math.max(1, Math.pow(v * sensitivity, 1.1) * h);
+          const px = Math.floor(i * (barW + barGap) + (sway * (i/bins - 0.5)));
+          const py = h - y;
+
+          const dv = prev ? (data[i] - prev[i]) / 255 : 0;
+          const baseHue = hueForBin(i, bins);
+          const hueShift = Math.max(-30, Math.min(30, dv * 100));
+          const hue = (baseHue + hueShift + 360) % 360;
+          const sat = 70 + Math.min(25, v*35);
+          const light = 40 + Math.min(30, v*35);
+
+          ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`;
+          ctx.fillRect(px, py, barW, y);
+
+          if (dv > 0.06){
+            ctx.fillStyle = `hsla(${(hue+20)%360} 95% 65% / 0.9)`;
+            ctx.fillRect(px, py-2, barW, 2);
+          }
+        }
+      }
+
+      function drawCircle(w, h, bins){
+        const cx = w/2, cy = h/2;
+        const baseR = Math.min(w, h) * 0.28;  // inner radius
+        const maxR  = Math.min(w, h) * 0.48;  // outer limit
+
+        // smooth rotation from gyro gamma (left/right tilt)
+        const targetRot = gyroEnabled ? (gyro.gamma || 0) * Math.PI/180 * 0.75 : 0;
+        rot += (targetRot - rot) * 0.08;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+
+        ctx.lineCap = "round";
+        ctx.shadowBlur = 14; ctx.shadowColor = "rgba(255,255,255,0.22)";
+
+        for (let i=0; i<bins; i++){
+          const v = data[i] / 255;
+          const amp = Math.pow(v * sensitivity, 1.05);
+          const r1 = baseR;
+          const r2 = Math.min(maxR, baseR + amp * (maxR - baseR));
+
+          const a = (i / bins) * Math.PI * 2;
+          const x1 = Math.cos(a) * r1, y1 = Math.sin(a) * r1;
+          const x2 = Math.cos(a) * r2, y2 = Math.sin(a) * r2;
+
+          const dv = prev ? (data[i] - prev[i]) / 255 : 0;
+          const baseHue = hueForBin(i, bins);
+          const hueShift = Math.max(-30, Math.min(30, dv * 100));
+          const hue = (baseHue + hueShift + 360) % 360;
+          const sat = 70 + Math.min(25, v*35);
+          const light = 45 + Math.min(30, v*35);
+
+          ctx.strokeStyle = `hsl(${hue} ${sat}% ${light}%)`;
+          ctx.lineWidth = 2 + amp * 3;
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+
+          // small spark at peaks
+          if (dv > 0.08){
+            ctx.fillStyle = `hsla(${(hue+20)%360} 95% 65% / 0.95)`;
+            ctx.beginPath();
+            ctx.arc(x2, y2, 2.2 + amp*2, 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+
+        ctx.restore();
       }
 
       function draw(){
@@ -377,36 +506,10 @@
         const h = canvas.clientHeight;
         const bins = data.length;
 
-        const barGap = 1; // px
-        const barW = Math.max(1, Math.floor(w / bins) - barGap);
+        const mode = modeEl.value;
+        if (mode === "bars")  drawBars(w, h, bins);
+        if (mode === "circle") drawCircle(w, h, bins);
 
-        // shadow "glow"
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = "rgba(255,255,255,0.25)";
-
-        for (let i=0; i<bins; i++){
-          const v = data[i] / 255;                     // 0..1 amplitude
-          const y = Math.max(1, Math.pow(v * sensitivity, 1.1) * h); // curved response
-          const px = Math.floor(i * (barW + barGap));
-          const py = h - y;
-
-          // delta to highlight shift (rising = warm; falling = cyan)
-          const dv = prev ? (data[i] - prev[i]) / 255 : 0; // -1..+1
-          const baseHue = hueForBin(i, bins);
-          const hueShift = Math.max(-30, Math.min(30, dv * 100)); // emphasise changes
-          const hue = (baseHue + hueShift + 360) % 360;
-          const sat = 70 + Math.min(25, v*35);
-          const light = 40 + Math.min(30, v*35);
-
-          ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`;
-          ctx.fillRect(px, py, barW, y);
-
-          // edge shimmer for strong rises
-          if (dv > 0.06){
-            ctx.fillStyle = `hsla(${(hue+20)%360} 95% 65% / 0.9)`;
-            ctx.fillRect(px, py-2, barW, 2);
-          }
-        }
         prev = (prev && prev.length === data.length) ? prev : new Uint8Array(bins);
         prev.set(data);
 
@@ -424,7 +527,7 @@
           stream = await navigator.mediaDevices.getUserMedia({ audio:true });
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 1024; // 512/1024/2048; trade-off detail vs CPU
+          analyser.fftSize = 1024;
           analyser.smoothingTimeConstant = 0.85;
           source = audioCtx.createMediaStreamSource(stream);
           source.connect(analyser);
@@ -448,10 +551,7 @@
         if (source) { try{ source.disconnect(); }catch{} source=null; }
         if (analyser) analyser=null;
         if (audioCtx) { try{ audioCtx.close(); }catch{} audioCtx=null; }
-        if (stream) {
-          stream.getTracks().forEach(t => t.stop());
-          stream = null;
-        }
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream=null; }
         statusEl.textContent = "Stopped.";
       }
 
@@ -459,11 +559,8 @@
       stopBtn.addEventListener("click", stop);
       sensEl.addEventListener("input", () => { sensitivity = parseFloat(sensEl.value); });
 
-      // Power save: pause on tab hide
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) { if (runningViz) stop(); }
-      });
-      // Cleanup on unload
+      // pause on background / cleanup
+      document.addEventListener("visibilitychange", () => { if (document.hidden && runningViz) stop(); });
       window.addEventListener("pagehide", stop);
     })();
   </script>
