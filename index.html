@@ -260,117 +260,137 @@
 </div>
 
 <script>
-/* ===== Helpers ===== */
-const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
-const storage = { get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}} };
+/* ===== Helpers (ES2018-safe) ===== */
+var $ = function(s){ return document.querySelector(s) };
+var $$ = function(s){ return Array.from(document.querySelectorAll(s)) };
+
+var storage = {
+  get: function(k, fallback){
+    try {
+      var raw = localStorage.getItem(k);
+      if (raw === null) return fallback;
+      var val = JSON.parse(raw);
+      return (typeof val === "undefined") ? fallback : val;
+    } catch (e) { return fallback; }
+  },
+  set: function(k, v){
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+  }
+};
 
 function degreesToCardinal(deg){
-  if(deg==null||isNaN(deg)) return "—";
-  const d=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW","N"];
+  if(deg==null || isNaN(deg)) return "—";
+  var d=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW","N"];
   return d[Math.round(deg/22.5)];
 }
 function sizeCanvas(el,ctx){
-  const dpr=Math.max(1,Math.min(3,devicePixelRatio||1));
-  const r=el.getBoundingClientRect();
+  var dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+  var r=el.getBoundingClientRect();
   el.width=Math.floor(r.width*dpr); el.height=Math.floor(r.height*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 function accelPitchRoll(ax,ay,az){
-  const RAD=180/Math.PI;
+  var RAD=180/Math.PI;
   return { pitch: Math.atan2(-ax, Math.hypot(ay,az))*RAD, roll: Math.atan2(ay, az)*RAD };
 }
-function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`; }
+function fmtTime(s){ var m=Math.floor(s/60), ss=Math.floor(s%60); return (String(m).padStart(2,"0")+":" + String(ss).padStart(2,"0")); }
 
 /* ===== Tabs (robust, hash-aware) ===== */
 (function(){
-  const tabs = $$(".tabs .tab");
-  const map = {tasks:"#view-tasks", notes:"#view-notes", timer:"#view-timer", bpm:"#view-bpm", viz:"#view-viz", range:"#view-range", sensors:"#view-sensors"};
+  var tabs = $$(".tabs .tab");
+  var map = {tasks:"#view-tasks", notes:"#view-notes", timer:"#view-timer", bpm:"#view-bpm", viz:"#view-viz", range:"#view-range", sensors:"#view-sensors"};
 
-  function show(tabName,{updateHash=true}={}){
-    const sel = map[tabName]; if(!sel) return;
-    Object.values(map).forEach(id => $(id).classList.toggle("hidden", id!==sel));
-    tabs.forEach(btn => btn.setAttribute("aria-selected", btn.dataset.tab===tabName ? "true" : "false"));
-    if(updateHash) history.replaceState(null,"","#"+tabName);
+  function show(tabName, updateHash){
+    if (updateHash === void 0) updateHash = true;
+    var sel = map[tabName]; if(!sel) return;
+    Object.values(map).forEach(function(id){ $(id).classList.toggle("hidden", id!==sel); });
+    tabs.forEach(function(btn){ btn.setAttribute("aria-selected", btn.dataset.tab===tabName ? "true" : "false"); });
+    if(updateHash){ try{ history.replaceState(null,"","#"+tabName); }catch(e){} }
   }
 
-  tabs.forEach(btn=>{
-    btn.addEventListener("click", ()=>show(btn.dataset.tab));
-    btn.addEventListener("keydown", e=>{
-      const i=tabs.indexOf(btn);
+  tabs.forEach(function(btn){
+    btn.addEventListener("click", function(){ show(btn.dataset.tab, true); });
+    btn.addEventListener("keydown", function(e){
+      var i=tabs.indexOf(btn);
       if(e.key==="ArrowRight"){ (tabs[i+1]||tabs[0]).focus(); e.preventDefault(); }
       if(e.key==="ArrowLeft"){  (tabs[i-1]||tabs[tabs.length-1]).focus(); e.preventDefault(); }
     });
   });
 
-  const initial=(location.hash||"#tasks").replace("#","");
-  show(map[initial]?initial:"tasks",{updateHash:true});
-  addEventListener("hashchange", ()=>{ const name=(location.hash||"#tasks").replace("#",""); show(map[name]?name:"tasks",{updateHash:false}); });
+  var initial=(location.hash||"#tasks").replace("#","");
+  show(map[initial]?initial:"tasks", true);
+  addEventListener("hashchange", function(){ var name=(location.hash||"#tasks").replace("#",""); show(map[name]?name:"tasks", false); });
 })();
 
 /* ===== Tasks ===== */
 (function(){
-  let tasks = storage.get("opspad:tasks",[]);
-  const list=$("#task-list"), input=$("#task-input"), remaining=$("#remaining");
+  var tasks = storage.get("opspad:tasks",[]);
+  var list=$("#task-list"), input=$("#task-input"), remaining=$("#remaining");
 
   function render(){
     list.innerHTML="";
     if(!tasks.length){
-      const p=document.createElement("div"); p.className="center"; p.textContent="No tasks yet.";
+      var p=document.createElement("div"); p.className="center"; p.textContent="No tasks yet.";
       list.appendChild(p);
     }else{
-      tasks.forEach((t,idx)=>{
-        const li=document.createElement("li"); li.className="card";
-        const row=document.createElement("div"); row.className="row"; row.style.alignItems="center";
-        const pill=document.createElement("button"); pill.className="pill"+(t.done?" done":""); pill.type="button";
-        pill.onclick=()=>{ t.done=!t.done; storage.set("opspad:tasks",tasks); render(); };
-        const txt=document.createElement("div"); txt.style.flex="1"; txt.textContent=t.text; if(t.done) txt.classList.add("strike");
-        const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete";
-        del.onclick=()=>{ tasks.splice(idx,1); storage.set("opspad:tasks",tasks); render(); };
-        row.append(pill,txt,del); li.appendChild(row); list.appendChild(li);
+      tasks.forEach(function(t,idx){
+        var li=document.createElement("li"); li.className="card";
+        var row=document.createElement("div"); row.className="row"; row.style.alignItems="center";
+        var pill=document.createElement("button"); pill.className="pill"+(t.done?" done":""); pill.type="button";
+        pill.onclick=function(){ t.done=!t.done; storage.set("opspad:tasks",tasks); render(); };
+        var txt=document.createElement("div"); txt.style.flex="1"; txt.textContent=t.text; if(t.done) txt.classList.add("strike");
+        var del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete";
+        del.onclick=function(){ tasks.splice(idx,1); storage.set("opspad:tasks",tasks); render(); };
+        row.appendChild(pill); row.appendChild(txt); row.appendChild(del); li.appendChild(row); list.appendChild(li);
       });
     }
-    const left=tasks.filter(t=>!t.done).length;
-    remaining.textContent = `${left} remaining`;
+    var left=tasks.filter(function(x){return !x.done}).length;
+    remaining.textContent = left+" remaining";
   }
 
-  $("#task-form").addEventListener("submit", (e)=>{
+  $("#task-form").addEventListener("submit", function(e){
     e.preventDefault();
-    const v=input.value.trim(); if(!v) return;
+    var v=input.value.trim(); if(!v) return;
     tasks.unshift({text:v,done:false,ts:Date.now()});
     storage.set("opspad:tasks",tasks);
     input.value=""; render();
   });
-  $("#clear-done").onclick=()=>{ tasks = tasks.filter(t=>!t.done); storage.set("opspad:tasks",tasks); render(); };
+  $("#clear-done").onclick=function(){ tasks = tasks.filter(function(t){return !t.done}); storage.set("opspad:tasks",tasks); render(); };
 
   render();
 })();
 
 /* ===== Notes ===== */
 (function(){
-  let notes = storage.get("opspad:notes",[]);
-  const list=$("#note-list"), title=$("#note-title"), body=$("#note-body");
+  var notes = storage.get("opspad:notes",[]);
+  var list=$("#note-list"), title=$("#note-title"), body=$("#note-body");
+
   function render(){
     list.innerHTML="";
     if(!notes.length){
-      const p=document.createElement("div"); p.className="center"; p.textContent="No notes yet.";
+      var p=document.createElement("div"); p.className="center"; p.textContent="No notes yet.";
       list.appendChild(p);
       return;
     }
-    notes.forEach((n,idx)=>{
-      const li=document.createElement("li"); li.className="card";
-      const row=document.createElement("div"); row.className="row"; row.style.alignItems="flex-start";
-      const col=document.createElement("div"); col.style.flex="1";
-      if(n.title){ const h=document.createElement("div"); h.style.fontWeight="700"; h.style.marginBottom="4px"; h.textContent=n.title; col.appendChild(h); }
-      const p=document.createElement("div"); p.style.whiteSpace="pre-wrap"; p.textContent=n.body; col.appendChild(p);
-      const del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete";
-      del.onclick=()=>{ notes.splice(idx,1); storage.set("opspad:notes",notes); render(); };
-      row.append(col,del); li.appendChild(row); list.appendChild(li);
+    notes.forEach(function(n,idx){
+      var li=document.createElement("li"); li.className="card";
+      var row=document.createElement("div"); row.className="row"; row.style.alignItems="flex-start";
+      var col=document.createElement("div"); col.style.flex="1";
+      if(n.title){ var h=document.createElement("div"); h.style.fontWeight="700"; h.style.marginBottom="4px"; h.textContent=n.title; col.appendChild(h); }
+      var p=document.createElement("div"); p.style.whiteSpace="pre-wrap"; p.textContent=n.body; col.appendChild(p);
+      var del=document.createElement("button"); del.className="btn ghost"; del.textContent="Delete";
+      del.onclick=function(){ notes.splice(idx,1); storage.set("opspad:notes",notes); render(); };
+      row.appendChild(col); row.appendChild(del); li.appendChild(row); list.appendChild(li);
     });
   }
-  $("#note-form").addEventListener("submit", (e)=>{
+
+  $("#note-form").addEventListener("submit", function(e){
     e.preventDefault();
-    const t=title.value.trim(), b=body.value.trim(); if(!t && !b) return;
-    notes.unshift({id:crypto.randomUUID?.():Math.random().toString(36).slice(2), title:t, body:b, ts:Date.now()});
+    var t=title.value.trim(), b=body.value.trim(); if(!t && !b) return;
+    var id = (window.crypto && typeof window.crypto.randomUUID === "function")
+      ? window.crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+    notes.unshift({id:id, title:t, body:b, ts:Date.now()});
     storage.set("opspad:notes",notes); title.value=""; body.value=""; render();
   });
   render();
@@ -378,66 +398,69 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
 
 /* ===== Timer ===== */
 (function(){
-  let dur=25*60, left=dur, run=false, raf=null, last=null;
-  const read=$("#timer-readout");
+  var dur=25*60, left=dur, run=false, raf=null, last=null;
+  var read=$("#timer-readout");
   function tick(ts){
     if(last==null) last=ts;
-    const dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt);
+    var dt=(ts-last)/1000; last=ts; left=Math.max(0,left-dt);
     read.textContent=fmtTime(left);
-    if(left>0 && run) raf=requestAnimationFrame(tick); else { run=false; $("#timer-start").textContent="Start"; last=null; }
+    if(left>0 && run){ raf=requestAnimationFrame(tick); } else { run=false; $("#timer-start").textContent="Start"; last=null; }
   }
-  $("#timer-start").onclick=()=>{ if(!run){ run=true; $("#timer-start").textContent="Pause"; if(left<=0) left=dur; raf=requestAnimationFrame(tick); } else { run=false; $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null; } };
-  $("#timer-reset").onclick=()=>{ run=false; left=dur; read.textContent=fmtTime(left); $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null; };
-  $("#timer-range").oninput=e=>{ dur=Number(e.target.value)*60; left=dur; read.textContent=fmtTime(left); };
+  $("#timer-start").onclick=function(){
+    if(!run){ run=true; $("#timer-start").textContent="Pause"; if(left<=0) left=dur; raf=requestAnimationFrame(tick); }
+    else { run=false; $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null; }
+  };
+  $("#timer-reset").onclick=function(){ run=false; left=dur; read.textContent=fmtTime(left); $("#timer-start").textContent="Start"; cancelAnimationFrame(raf); last=null; };
+  $("#timer-range").oninput=function(e){ dur=Number(e.target.value)*60; left=dur; read.textContent=fmtTime(left); };
   read.textContent=fmtTime(left);
 })();
 
 /* ===== BPM ===== */
 (function(){
-  let taps=[];
+  var taps=[];
   function update(){
     if(taps.length<2){ $("#bpm-value").textContent="—"; $("#bpm-ms").textContent=""; return; }
-    const diffs=taps.slice(1).map((x,i)=>x-taps[i]);
-    const mean=diffs.reduce((a,b)=>a+b,0)/diffs.length;
-    const bpm=60000/mean;
+    var diffs=taps.slice(1).map(function(x,i){return x-taps[i]});
+    var mean=diffs.reduce(function(a,b){return a+b},0)/diffs.length;
+    var bpm=60000/mean;
     $("#bpm-value").textContent=(Math.round(bpm*10)/10).toString();
-    $("#bpm-ms").textContent=`~${mean.toFixed(1)} ms/beat`;
+    $("#bpm-ms").textContent="~"+mean.toFixed(1)+" ms/beat";
   }
-  $("#bpm-tap").onclick=()=>{ taps=[...taps,performance.now()].slice(-8); update(); if(navigator.vibrate) navigator.vibrate(12); };
-  $("#bpm-reset").onclick=()=>{ taps=[]; update(); };
+  $("#bpm-tap").onclick=function(){ taps=[].concat(taps,[performance.now()]).slice(-8); update(); if(navigator.vibrate) navigator.vibrate(12); };
+  $("#bpm-reset").onclick=function(){ taps=[]; update(); };
   update();
 })();
 
 /* ===== Visualizer ===== */
 (function(){
-  const canvas=$("#viz-canvas"), ctx=canvas.getContext("2d",{alpha:false});
-  sizeCanvas(canvas,ctx); new ResizeObserver(()=>sizeCanvas(canvas,ctx)).observe(canvas);
-  let audioCtx=null, analyser=null, source=null, stream=null, data=null;
-  let sensitivity=parseFloat($("#viz-sens").value), circleSize=parseFloat($("#viz-circle").value), rot=0;
+  var canvas=$("#viz-canvas"), ctx=canvas.getContext("2d",{alpha:false});
+  sizeCanvas(canvas,ctx); new ResizeObserver(function(){sizeCanvas(canvas,ctx)}).observe(canvas);
+  var audioCtx=null, analyser=null, source=null, stream=null, data=null;
+  var sensitivity=parseFloat($("#viz-sens").value), circleSize=parseFloat($("#viz-circle").value), rot=0;
 
-  const stops=["#4da3ff","#00f59a","#ff4dff"];
-  function hex(h){h=h.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");const n=parseInt(h,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
+  var stops=["#4da3ff","#00f59a","#ff4dff"];
+  function hex(h){h=h.replace("#","");if(h.length===3)h=h.split("").map(function(c){return c+c}).join("");var n=parseInt(h,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
   function lerp(a,b,t){return a+(b-a)*t}
   function mix(c1,c2,t){return{r:Math.round(lerp(c1.r,c2.r,t)),g:Math.round(lerp(c1.g,c2.g,t)),b:Math.round(lerp(c1.b,c2.b,t))}}
-  function rgb(c,a=1){return`rgba(${c.r},${c.g},${c.b},${a})`}
-  function grad(t){const n=stops.length-1,i=Math.floor(t*n); return mix(hex(stops[i]), hex(stops[Math.min(n,i+1)]), (t*n-i));}
+  function rgb(c,a){ if(a===void 0)a=1; return"rgba("+c.r+","+c.g+","+c.b+","+a+")" }
+  function grad(t){var n=stops.length-1,i=Math.floor(t*n); return mix(hex(stops[i]), hex(stops[Math.min(n,i+1)]), (t*n-i));}
 
   function drawBars(w,h,b){
-    const gap=1, wid=Math.max(1,Math.floor(w/b)-gap);
-    for(let i=0;i<b;i++){
-      const v=data[i]/255, amp=Math.pow(v*sensitivity,1.08);
-      const y=Math.max(1,amp*h), x=i*(wid+gap), py=h-y;
+    var gap=1, wid=Math.max(1,Math.floor(w/b)-gap);
+    for(var i=0;i<b;i++){
+      var v=data[i]/255, amp=Math.pow(v*sensitivity,1.08);
+      var y=Math.max(1,amp*h), x=i*(wid+gap), py=h-y;
       ctx.fillStyle=rgb(grad(i/(b-1)));
       ctx.fillRect(x,py,wid,y);
     }
   }
   function drawCircle(w,h,b){
-    const cx=w/2, cy=h/2, m=Math.min(w,h), r0=m*circleSize, r1=m*Math.min(.49,circleSize+.2);
+    var cx=w/2, cy=h/2, m=Math.min(w,h), r0=m*circleSize, r1=m*Math.min(.49,circleSize+.2);
     ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot); ctx.lineCap="round"; ctx.shadowBlur=14; ctx.shadowColor="rgba(255,255,255,.22)";
-    for(let i=0;i<b;i++){
-      const v=data[i]/255, amp=Math.pow(v*sensitivity,1.04), a=i/b*Math.PI*2;
-      const x1=Math.cos(a)*r0, y1=Math.sin(a)*r0;
-      const x2=Math.cos(a)*Math.min(r1,r0+amp*(r1-r0)), y2=Math.sin(a)*Math.min(r1,r0+amp*(r1-r0));
+    for(var i=0;i<b;i++){
+      var v=data[i]/255, amp=Math.pow(v*sensitivity,1.04), a=i/b*Math.PI*2;
+      var x1=Math.cos(a)*r0, y1=Math.sin(a)*r0;
+      var x2=Math.cos(a)*Math.min(r1,r0+amp*(r1-r0)), y2=Math.sin(a)*Math.min(r1,r0+amp*(r1-r0));
       ctx.strokeStyle=rgb(grad(i/(b-1))); ctx.lineWidth=2+amp*3; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
     }
     ctx.restore();
@@ -446,46 +469,48 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
     if(!analyser) return;
     analyser.getByteFrequencyData(data);
     ctx.fillStyle="rgba(10,10,12,.10)"; ctx.fillRect(0,0,canvas.width,canvas.height);
-    const w=canvas.clientWidth, h=canvas.clientHeight, b=data.length;
+    var w=canvas.clientWidth, h=canvas.clientHeight, b=data.length;
     ($("#viz-mode").value==="bars")?drawBars(w,h,b):drawCircle(w,h,b);
     requestAnimationFrame(loop);
   }
 
-  $("#viz-start").onclick=async()=>{
-    if(!(isSecureContext || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
+  $("#viz-start").onclick=function(){
+    if(!(window.isSecureContext || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
       $("#viz-status").textContent="Mic requires HTTPS or localhost.";
       return;
     }
-    try{
-      $("#viz-status").textContent="Requesting microphone…";
-      stream=await navigator.mediaDevices.getUserMedia({audio:true});
-      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-      analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.85;
-      source=audioCtx.createMediaStreamSource(stream); source.connect(analyser);
-      data=new Uint8Array(analyser.frequencyBinCount);
-      $("#viz-status").textContent="Live";
-      loop();
-    }catch(e){ $("#viz-status").textContent="Mic error: "+(e.message||e.name||e); }
+    (async function(){
+      try{
+        $("#viz-status").textContent="Requesting microphone…";
+        stream=await navigator.mediaDevices.getUserMedia({audio:true});
+        audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+        analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.85;
+        source=audioCtx.createMediaStreamSource(stream); source.connect(analyser);
+        data=new Uint8Array(analyser.frequencyBinCount);
+        $("#viz-status").textContent="Live";
+        loop();
+      }catch(e){ $("#viz-status").textContent="Mic error: "+(e.message||e.name||e); }
+    })();
   };
-  $("#viz-stop").onclick=()=>{ try{source&&source.disconnect()}catch{}; if(stream){stream.getTracks().forEach(t=>t.stop())} stream=null; if(audioCtx){try{audioCtx.close()}catch{}} analyser=null; $("#viz-status").textContent="Stopped."; };
-  $("#viz-sens").oninput=e=>sensitivity=parseFloat(e.target.value);
-  $("#viz-circle").oninput=e=>circleSize=parseFloat(e.target.value);
-  document.addEventListener("visibilitychange",()=>{ if(document.hidden) $("#viz-stop").click(); });
-  addEventListener("pagehide",()=>{ $("#viz-stop").click(); });
+  $("#viz-stop").onclick=function(){ try{source&&source.disconnect()}catch(e){}; if(stream){stream.getTracks().forEach(function(t){t.stop()})} stream=null; if(audioCtx){try{audioCtx.close()}catch(e){}} analyser=null; $("#viz-status").textContent="Stopped."; };
+  $("#viz-sens").oninput=function(e){sensitivity=parseFloat(e.target.value)};
+  $("#viz-circle").oninput=function(e){circleSize=parseFloat(e.target.value)};
+  document.addEventListener("visibilitychange",function(){ if(document.hidden) $("#viz-stop").click(); });
+  addEventListener("pagehide",function(){ $("#viz-stop").click(); });
 })();
 
 /* ===== Rangefinder ===== */
 (function(){
-  const v=$("#range-video"), hud=$("#range-hud"), faceEl=$("#range-face"), distEl=$("#range-distance"), statusEl=$("#range-status");
-  const startBtn=$("#range-start"), stopBtn=$("#range-stop"), sensBtn=$("#range-sensors"), hEl=$("#range-height"), uEl=$("#range-units"), calBtn=$("#range-cal"), lockBtn=$("#range-lock");
+  var v=$("#range-video"), hud=$("#range-hud"), faceEl=$("#range-face"), distEl=$("#range-distance"), statusEl=$("#range-status");
+  var startBtn=$("#range-start"), stopBtn=$("#range-stop"), sensBtn=$("#range-sensors"), hEl=$("#range-height"), uEl=$("#range-units"), calBtn=$("#range-cal"), lockBtn=$("#range-lock");
 
-  let stream=null, sensorsOn=false, locked=false;
-  let pitchOri=0, pitchAcc=0, zero=0, height=parseFloat(hEl.value), units=uEl.value;
+  var stream=null, sensorsOn=false, locked=false;
+  var pitchOri=0, pitchAcc=0, zero=0, height=parseFloat(hEl.value), units=uEl.value;
 
   function toFeet(m){return m*3.28084}
-  function fmt(m){return units==="m" ? `${(m<10?m.toFixed(2):m.toFixed(1))} m` : `${(toFeet(m)<10?toFeet(m).toFixed(2):toFeet(m).toFixed(1))} ft`;}
+  function fmt(m){return units==="m" ? ((m<10?m.toFixed(2):m.toFixed(1))+" m") : ((toFeet(m)<10?toFeet(m).toFixed(2):toFeet(m).toFixed(1))+" ft");}
   async function startCam(){
-    if(!(isSecureContext || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
+    if(!(window.isSecureContext || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
       statusEl.textContent="Camera requires HTTPS or localhost."; return;
     }
     try{
@@ -493,24 +518,26 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
       v.srcObject=stream; await v.play(); statusEl.textContent="Camera live. Calibrate level, then aim at base of target.";
     }catch(e){ statusEl.textContent="Camera error: "+(e.message||e); }
   }
-  function stopCam(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } v.srcObject=null; statusEl.textContent="Camera stopped."; }
+  function stopCam(){ if(stream){ stream.getTracks().forEach(function(t){t.stop()}); stream=null; } v.srcObject=null; statusEl.textContent="Camera stopped."; }
 
-  let face="—";
+  var face="—";
   function onMotion(e){
-    const a=e.accelerationIncludingGravity||e.acceleration; if(!a) return;
-    const pr=accelPitchRoll(a.x||0,a.y||0,a.z||0); pitchAcc=pr.pitch;
-    const z=a.z||0, ax=a.x||0, ay=a.y||0; const absZ=Math.abs(z), absX=Math.abs(ax), absY=Math.abs(ay);
+    var a=e.accelerationIncludingGravity||e.acceleration; if(!a) return;
+    var pr=accelPitchRoll(a.x||0,a.y||0,a.z||0); pitchAcc=pr.pitch;
+    var z=a.z||0, ax=a.x||0, ay=a.y||0; var absZ=Math.abs(z), absX=Math.abs(ax), absY=Math.abs(ay);
     face=(absZ>6&&absZ>absX&&absZ>absY)?(z<0?"face up":"face down"):"vertical"; faceEl.textContent=face;
   }
-  function onOrient(e){ pitchOri=e.beta||0; }
+  function onOrient(e){
+    pitchOri = (typeof e.beta === "number") ? e.beta : 0;
+  }
   function effectivePitch(){ return Math.abs(pitchAcc)>1 ? pitchAcc : pitchOri; }
 
   async function enable(){
     try{
-      if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
-        const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ statusEl.textContent="Motion permission denied."; return; }
+      if(typeof window.DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+        var r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ statusEl.textContent="Motion permission denied."; return; }
       }
-      if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch{} }
+      if(typeof window.DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch(e){} }
       addEventListener("devicemotion", onMotion, true);
       addEventListener("deviceorientation", onOrient, true);
       sensorsOn=true; sensBtn.textContent="Sensors: On"; statusEl.textContent="Sensors enabled.";
@@ -519,10 +546,10 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
   function disable(){ removeEventListener("devicemotion", onMotion, true); removeEventListener("deviceorientation", onOrient, true); sensorsOn=false; sensBtn.textContent="Enable Sensors"; statusEl.textContent="Sensors off."; }
 
   function loop(){
-    const p=effectivePitch(); const dep=(p - zero);
-    hud.textContent=`pitch ${Math.round(p)}° • depression ${Math.round(dep)}°`;
+    var p=effectivePitch(); var dep=(p - zero);
+    hud.textContent="pitch "+Math.round(p)+"° • depression "+Math.round(dep)+"°";
     if(!locked){
-      if(dep>1){ const rad=dep*Math.PI/180; const dist=height/Math.tan(rad); distEl.textContent = isFinite(dist)&&dist<10000 ? `distance ${fmt(dist)}` : "distance —"; }
+      if(dep>1){ var rad=dep*Math.PI/180; var dist=height/Math.tan(rad); distEl.textContent = (isFinite(dist)&&dist<10000) ? ("distance "+fmt(dist)) : "distance —"; }
       else { distEl.textContent="distance —"; }
     }
     requestAnimationFrame(loop);
@@ -530,57 +557,52 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
   loop();
 
   startBtn.onclick=startCam; stopBtn.onclick=stopCam;
-  sensBtn.onclick=()=>sensorsOn?disable():enable();
-  hEl.oninput=e=>height=parseFloat(e.target.value);
-  uEl.onchange=e=>{ units=e.target.value; };
-  calBtn.onclick=()=>{ zero=effectivePitch(); statusEl.textContent=`Calibrated at ${Math.round(zero)}°`; };
-  lockBtn.onclick=()=>{ locked=!locked; lockBtn.textContent=locked?"Unlock":"Lock"; };
+  sensBtn.onclick=function(){ sensorsOn?disable():enable(); };
+  hEl.oninput=function(e){ height=parseFloat(e.target.value) };
+  uEl.onchange=function(e){ units=e.target.value; };
+  calBtn.onclick=function(){ zero=effectivePitch(); statusEl.textContent="Calibrated at "+Math.round(zero)+"°"; };
+  lockBtn.onclick=function(){ locked=!locked; lockBtn.textContent=locked?"Unlock":"Lock"; };
 
-  addEventListener("pagehide",()=>{ if(stream){stream.getTracks().forEach(t=>t.stop());} });
+  addEventListener("pagehide",function(){ if(stream){stream.getTracks().forEach(function(t){t.stop()});} });
 })();
 
 /* ===== Sensors (attitude + extra sensors) ===== */
 (function(){
-  const st=$("#sns-status"), vPR=$("#sns-pr"), vHead=$("#sns-head"), vFace=$("#sns-face");
-  const g=$("#gyro-canvas"), ctx=g.getContext("2d"); sizeCanvas(g,ctx); new ResizeObserver(()=>sizeCanvas(g,ctx)).observe(g);
-  const calBtn=$("#h-cal"), flipBtn=$("#h-flip"); let zero=0, flip=storage.get("opspad:hflip",false);
-  let head=null, face="—", pitch=0, roll=0;
+  var st=$("#sns-status"), vPR=$("#sns-pr"), vHead=$("#sns-head"), vFace=$("#sns-face");
+  var g=$("#gyro-canvas"), ctx=g.getContext("2d"); sizeCanvas(g,ctx); new ResizeObserver(function(){sizeCanvas(g,ctx)}).observe(g);
+  var calBtn=$("#h-cal"), flipBtn=$("#h-flip"); var zero=0, flip=storage.get("opspad:hflip",false);
+  var head=null, face="—", pitch=0, roll=0;
 
   function draw(){
-    const w=g.clientWidth, h=g.clientHeight, cx=w/2, cy=h/2;
+    var w=g.clientWidth, h=g.clientHeight, cx=w/2, cy=h/2;
     ctx.clearRect(0,0,w,h);
 
-    // Honor Flip + face up/down (invert)
-    const invertedByFace = (face === "face down");
-    const inverted = flip ? !invertedByFace : invertedByFace;
+    var invertedByFace = (face === "face down");
+    var inverted = flip ? !invertedByFace : invertedByFace;
 
-    // Pixels per degree to show ±45°
-    const pxPerDeg = h/90;
-    const pitchPx  = (inverted ? -(pitch - zero) : (pitch - zero)) * pxPerDeg;
-    const rollRad  = (roll*Math.PI/180) + (inverted ? Math.PI : 0);
+    var pxPerDeg = h/90;
+    var pitchPx  = (inverted ? -(pitch - zero) : (pitch - zero)) * pxPerDeg;
+    var rollRad  = (roll*Math.PI/180) + (inverted ? Math.PI : 0);
 
     ctx.save(); ctx.translate(cx,cy); ctx.rotate(rollRad);
 
-    // Sky / Ground
     ctx.fillStyle = inverted ? "#3a2412" : "#0d1f4a";
     ctx.fillRect(-w, -h*2 + pitchPx, w*2, h*2);
     ctx.fillStyle = inverted ? "#0d1f4a" : "#3a2412";
     ctx.fillRect(-w, 0 + pitchPx, w*2, h*2);
 
-    // Horizon line
     ctx.strokeStyle="#fff"; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(-w, pitchPx); ctx.lineTo(w, pitchPx); ctx.stroke();
 
-    // Pitch ladder: ticks every 5°, labels every 10°
     ctx.lineWidth=1.3; ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.fillStyle="rgba(255,255,255,0.92)";
     ctx.font="11px system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial";
-    for(let d=-45; d<=45; d+=5){
+    for(var d=-45; d<=45; d+=5){
       if(d===0) continue;
-      const y = pitchPx - d*pxPerDeg;
-      const major = (d % 10 === 0), len = major ? 26 : 16;
+      var y = pitchPx - d*pxPerDeg;
+      var major = (d % 10 === 0), len = major ? 26 : 16;
       ctx.beginPath(); ctx.moveTo(-len,y); ctx.lineTo(len,y); ctx.stroke();
       if(major){
-        const label = Math.abs(d)+"°";
+        var label = Math.abs(d)+"°";
         ctx.textAlign="left";  ctx.fillText(label, len+6, y+3);
         ctx.textAlign="right"; ctx.fillText(label, -len-6, y+3);
       }
@@ -592,44 +614,52 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
   draw();
 
   function onMotion(e){
-    const a=e.accelerationIncludingGravity||e.acceleration; if(!a) return;
-    const pr=accelPitchRoll(a.x||0,a.y||0,a.z||0); pitch=pr.pitch; roll=pr.roll;
-    const z=a.z||0, ax=a.x||0, ay=a.y||0; const absZ=Math.abs(z), absX=Math.abs(ax), absY=Math.abs(ay);
+    var a=e.accelerationIncludingGravity||e.acceleration; if(!a) return;
+    var pr=accelPitchRoll(a.x||0,a.y||0,a.z||0); pitch=pr.pitch; roll=pr.roll;
+    var z=a.z||0, ax=a.x||0, ay=a.y||0; var absZ=Math.abs(z), absX=Math.abs(ax), absY=Math.abs(ay);
     face=(absZ>6&&absZ>absX&&absZ>absY)?(z<0?"face up":"face down"):"vertical";
-    vFace.textContent=face; vPR.textContent=`${Math.round(pitch)} / ${Math.round(roll)} deg`;
+    vFace.textContent=face; vPR.textContent=(Math.round(pitch)+" / "+Math.round(roll)+" deg");
   }
   function onOrient(e){
-    const a=(typeof e.webkitCompassHeading==="number") ? (360 - e.webkitCompassHeading)%360 : (e.alpha ?? null);
-    if(a!=null){ head = a<0? a+360 : (a>=360 ? a-360 : a); vHead.textContent=`${Math.round(head)}° (${degreesToCardinal(head)})`; }
+    var a = (typeof e.webkitCompassHeading === "number") ? (360 - e.webkitCompassHeading)%360 :
+            (typeof e.alpha === "number" ? e.alpha : null);
+    if(a!=null){
+      head = a<0 ? a+360 : (a>=360 ? a-360 : a);
+      vHead.textContent = (Math.round(head)+"° ("+degreesToCardinal(head)+")");
+    }
   }
 
-  $("#sns-orient").onclick=async()=>{ try{
-    if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
-      const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ st.textContent="Motion permission denied."; return; }
+  $("#sns-orient").onclick=(function(){
+    return async function(){
+      try{
+        if(typeof window.DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+          var r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ st.textContent="Motion permission denied."; return; }
+        }
+        if(typeof window.DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch(e){} }
+        addEventListener("devicemotion", onMotion, true);
+        addEventListener("deviceorientation", onOrient, true);
+        st.textContent="Orientation enabled.";
+      }catch(e){ st.textContent="Orientation error: "+(e.message||e); }
     }
-    if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){ try{ await DeviceOrientationEvent.requestPermission(); }catch{} }
-    addEventListener("devicemotion", onMotion, true);
-    addEventListener("deviceorientation", onOrient, true);
-    st.textContent="Orientation enabled.";
-  }catch(e){ st.textContent="Orientation error: "+(e.message||e); } };
+  })();
 
-  calBtn.onclick=()=>{ zero=pitch; st.textContent=`Level set at ${Math.round(zero)}°`; };
-  flipBtn.onclick=()=>{ flip=!flip; storage.set("opspad:hflip",flip); st.textContent=flip?"Horizon flipped":"Horizon normal"; };
+  calBtn.onclick=function(){ zero=pitch; st.textContent="Level set at "+Math.round(zero)+"°"; };
+  flipBtn.onclick=function(){ flip=!flip; storage.set("opspad:hflip",flip); st.textContent=flip?"Horizon flipped":"Horizon normal"; };
 
   // Magnetometer
-  let mag=null;
-  $("#sns-magnet").onclick=()=>{
+  var mag=null;
+  $("#sns-magnet").onclick=function(){
     if(!('Magnetometer' in window)){ $("#sns-mag-status").textContent="Unsupported"; return; }
     if(!mag){
       try{
         mag=new Magnetometer({frequency:10});
-        mag.addEventListener('reading',()=>{
-          const x=mag.x||0, y=mag.y||0, z=mag.z||0, m=Math.hypot(x,y,z);
-          $("#sns-mag").textContent=`${x.toFixed(1)} / ${y.toFixed(1)} / ${z.toFixed(1)}`;
-          $("#sns-mag-mag").textContent=`${m.toFixed(1)}`;
+        mag.addEventListener('reading',function(){
+          var x=mag.x||0, y=mag.y||0, z=mag.z||0, m=Math.hypot(x,y,z);
+          $("#sns-mag").textContent=(x.toFixed(1)+" / "+y.toFixed(1)+" / "+z.toFixed(1));
+          $("#sns-mag-mag").textContent=m.toFixed(1);
         });
-        mag.addEventListener('error', e=>{
-          $("#sns-mag-status").textContent = `Error: ${e.error&&e.error.name?e.error.name:(e.message||e)}`;
+        mag.addEventListener('error',function(e){
+          $("#sns-mag-status").textContent="Error: "+(e.error&&e.error.name?e.error.name:(e.message||e));
         });
         mag.start();
         $("#sns-mag-status").textContent="Running"; $("#sns-magnet").textContent="Magnetometer: On";
@@ -637,21 +667,21 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
         $("#sns-mag-status").textContent="Blocked by permissions/policy";
       }
     }else{
-      try{mag.stop()}catch{} mag=null;
+      try{mag.stop()}catch(e){} mag=null;
       $("#sns-mag-status").textContent="Stopped"; $("#sns-magnet").textContent="Enable Magnetometer";
     }
   };
 
   // Ambient Light
-  let lux=null;
-  $("#sns-light").onclick=()=>{
+  var lux=null;
+  $("#sns-light").onclick=function(){
     if(!('AmbientLightSensor' in window)){ $("#sns-lux-status").textContent="Unsupported"; return; }
     if(!lux){
       try{
         lux=new AmbientLightSensor({frequency:5});
-        lux.addEventListener('reading',()=>{ $("#sns-lux").textContent=`${lux.illuminance.toFixed(1)} lux`; });
-        lux.addEventListener('error', e=>{
-          $("#sns-lux-status").textContent = `Error: ${e.error&&e.error.name?e.error.name:(e.message||e)}`;
+        lux.addEventListener('reading',function(){ $("#sns-lux").textContent=lux.illuminance.toFixed(1)+" lux"; });
+        lux.addEventListener('error',function(e){
+          $("#sns-lux-status").textContent="Error: "+(e.error&&e.error.name?e.error.name:(e.message||e));
         });
         lux.start();
         $("#sns-lux-status").textContent="Running"; $("#sns-light").textContent="Ambient Light: On";
@@ -659,26 +689,26 @@ function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${St
         $("#sns-lux-status").textContent="Blocked by permissions/policy";
       }
     }else{
-      try{lux.stop()}catch{} lux=null;
+      try{lux.stop()}catch(e){} lux=null;
       $("#sns-lux-status").textContent="Stopped"; $("#sns-light").textContent="Enable Ambient Light";
     }
   };
 
   // GPS
-  let watch=null;
-  $("#sns-gps").onclick=()=>{
+  var watch=null;
+  $("#sns-gps").onclick=function(){
     if(!navigator.geolocation){ $("#sns-gps-status").textContent="Unsupported"; return; }
     if(watch==null){
-      watch=navigator.geolocation.watchPosition(p=>{
-        const c=p.coords;
-        $("#sns-ll").textContent=`${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`;
-        $("#sns-acc").textContent=`±${Math.round(c.accuracy)} m`;
-        $("#sns-alt").textContent=(c.altitude!=null)?`${c.altitude.toFixed(1)} m`:"—";
-        const sp=(c.speed!=null&&isFinite(c.speed))?`${c.speed.toFixed(1)} m/s (${(c.speed*3.6).toFixed(1)} km/h)`:"—";
-        const hd=(c.heading!=null&&isFinite(c.heading))?`${Math.round(c.heading)}° (${degreesToCardinal(c.heading)})`:"—";
-        $("#sns-speed").textContent=`${sp} • ${hd}`;
+      watch=navigator.geolocation.watchPosition(function(p){
+        var c=p.coords;
+        $("#sns-ll").textContent=c.latitude.toFixed(6)+", "+c.longitude.toFixed(6);
+        $("#sns-acc").textContent="±"+Math.round(c.accuracy)+" m";
+        $("#sns-alt").textContent=(c.altitude!=null)?(c.altitude.toFixed(1)+" m"):"—";
+        var sp=(c.speed!=null&&isFinite(c.speed))?(c.speed.toFixed(1)+" m/s ("+(c.speed*3.6).toFixed(1)+" km/h)"):"—";
+        var hd=(c.heading!=null&&isFinite(c.heading))?(Math.round(c.heading)+"° ("+degreesToCardinal(c.heading)+")"):"—";
+        $("#sns-speed").textContent=sp+" • "+hd;
         $("#sns-gps-status").textContent="Watching…";
-      }, e=>$("#sns-gps-status").textContent=`Error: ${e.message}`, { enableHighAccuracy:true, maximumAge:2000, timeout:10000 });
+      }, function(e){ $("#sns-gps-status").textContent="Error: "+e.message; }, { enableHighAccuracy:true, maximumAge:2000, timeout:10000 });
       $("#sns-gps").textContent="GPS: On";
     }else{
       navigator.geolocation.clearWatch(watch); watch=null;
